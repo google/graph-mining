@@ -1,0 +1,143 @@
+// Copyright 2023 Google LLC
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//      http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+syntax = "proto2";
+
+// TODO: move this to graph_mining.in_memory package.
+package research_graph.in_memory;
+
+import 'in_memory/clustering/affinity/dynamic_weight_threshold.proto';
+
+// NextId: 11
+message AffinityClustererConfig {
+  // Number of times we perform single-linkage clustering. If num_iterations =
+  // 0, produces a clustering in which each node is in its own cluster. Note
+  // that setting this to k is equivalent to setting compression_rounds
+  // parameter of distributed affinity clustering to k-1.
+  // In sequential affinity clustering, the number of levels in the
+  // clustering hierarchy produced is always equal to num_iterations. However,
+  // in parallel affinity clustering, the number of levels may be fewer than
+  // the number of iterations, where omitted clustering levels are equal
+  // to the last returned level.
+  optional int32 num_iterations = 1 [default = 1];
+
+  message WeightThresholdsSequence {
+    repeated double thresholds = 1 [packed = true];
+  }
+
+  // Specifies the edge weight threshold in each iteration of the clustering.
+  // In each iteration, edges of weight smaller than the threshold are ignored.
+  oneof weight_threshold_config {
+    // A fixed threshold in each round.
+    double weight_threshold = 2;
+
+    // A fixed sequence of the thresholds.
+    // NOTE: If num_iterations > length of the list, then the last threshold
+    // specified is used for all iterations beyond the length of the list.
+    WeightThresholdsSequence per_iteration_weight_thresholds = 7;
+
+    // Dynamically change the weight threshold in each iteration.
+    DynamicWeightThresholdConfig dynamic_weight_threshold_config = 8;
+  }
+
+  // Specifies how edge weights are aggregated when computing a compressed graph
+  // for subsequent iterations. Let S = set of edge weights between two
+  // clusters, X, Y = total number of nodes in each cluster. With these
+  // definitions, we use the following formulas:
+  enum EdgeAggregationFunction {
+    // sum(S) / (X*Y)
+    DEFAULT_AVERAGE = 0;
+    // max(S)
+    MAX = 1;
+    // sum(S)
+    SUM = 2;
+    // sum(S) / min(X, Y)
+    CUT_SPARSITY = 3;
+    // Let s_0, ..., s_{|S|-1} be a nondecreasing ordering of S. Then,
+    // pick edge weight s_N such that N is percentile_linkage_value * (|S|-1).
+    PERCENTILE = 4;
+    // sum(S) / count(S)
+    EXPLICIT_AVERAGE = 5;
+  }
+  optional EdgeAggregationFunction edge_aggregation_function = 3;
+
+  // Specifies a set of conditions that qualify cluster as "active".
+  // An unset field defines a condition that's always satisfied.
+  message ActiveClusterCondition {
+    // Minimum density, that is total edge weight divided by number of
+    // (unordered) node pairs.
+    optional double min_density = 1;
+    // Sum of weights of edges leaving the cluster divided by the total weight
+    // of edges incident to all nodes in the cluster.
+    optional double min_conductance = 2;
+  }
+
+  // Possible ways in which a cluster may qualify as "active". A cluster is
+  // active if it satisfies at least one of the conditions listed in this field.
+  // If the field is empty, every cluster is active.
+  repeated ActiveClusterCondition active_cluster_conditions = 4;
+
+  // The percentile value (from 0 to 1) of edge weight distributions to use when
+  // determining which clusters to merge.
+  // Only used for PERCENTILE EdgeAggregationFunction.
+  optional float percentile_linkage_value = 5;
+
+  // The minimum number of edges required between two clusters to be possibly
+  // merged via PERCENTILE EdgeAggregationFunction. If the minimum number of
+  // edges are not present, then MAX EdgeAggregationFunction is used.
+  optional int32 min_edge_count_for_percentile_linkage = 6 [default = 4];
+
+  // Specifies size constraints.
+  message SizeConstraint {
+    // Enforces a hard constraint on the maximum total weight of nodes in a
+    // cluster. Note that by default each node has a weight of 1. Set
+    // `use_node_weight_for_cluster_size` to true in order to use input node
+    // weights to calculate cluster sizes.
+    optional double max_cluster_size = 1;
+
+    // Desired minimum total weight of nodes in a cluster. Note that by default
+    // each node has a weight of 1. Set `use_node_weight_for_cluster_size` to
+    // true in order to use input node weights to calculate cluster sizes.
+    // NOTE: This is a soft constraint, and returned clusters may be smaller
+    // than the desired minimum if:
+    // - the graph contains connected components with size less than the
+    // minimum.
+    // - the configuration prevents sufficient merging (due to not enough
+    //   compression rounds, too high of an edge weight threshold).
+    // - merging clusters would violate the maximum size constraint, if present.
+    optional double min_cluster_size = 2;
+
+    // prefer_min_cluster_size is effective only when min_cluster_size is set.
+    //
+    // When min_cluster_size is set, we do *not* try to maximize the cluster
+    // sizes. The behavior for honoring min_cluster_size depends on
+    // prefer_min_cluster_size.
+    //
+    // If false (default), a cluster does not initiate a merge with another
+    // cluster, if the size of the former is above the min size constraint upon
+    // entry to a compression round.
+    //
+    // If true, clusters will merge only if at least one of the clusters is
+    // below the min_cluster_size throughout a compression round. This will tend
+    // the result towards clusters near min_cluster_size.
+    optional bool prefer_min_cluster_size = 3;
+  }
+
+  optional SizeConstraint size_constraint = 9;
+
+  // If true, use node weights in input to calculate cluster sizes. Otherwise,
+  // use node counts to calculate cluster sizes (i.e., use default node weight
+  // of 1).
+  optional bool use_node_weight_for_cluster_size = 10 [default = true];
+}

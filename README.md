@@ -1,6 +1,9 @@
-# Graph Mining
+# The Graph Mining Library (go/gm-third-party)
 
-This project includes some of Google's [Graph Mining](https://research.google/teams/algorithms-optimization/graph-mining/) tools such as Graph Builder and Clustering. Our tools can be used for solving data mining and machine learning problems that either inherently have a graph structure or they can be formalized as graph problems. Our algorithms and systems are used in a wide array of Google products such as Search, YouTube, AdWords, Play, Maps, and Social.
+This directory contains code for graph construction, mining and clustering.
+At the moment, it is duplicating some of the internal Graph Mining tools located
+at google3/research/graph/. Eventually, the code in this directory will be open
+sourced and replace the code in the internal directory.
+go/graph-mining for detailed explanations of algorithms.
 
-This is not an officially supported Google product.
-
+For questions/comments, contact graph-mining-core@.

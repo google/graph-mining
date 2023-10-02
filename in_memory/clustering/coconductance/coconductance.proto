@@ -1,0 +1,59 @@
+// Copyright 2023 Google LLC
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//      http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+syntax = "proto2";
+
+// TODO: move this to graph_mining.in_memory package.
+package research_graph.in_memory;
+
+// Config for CoconductanceClusterer, which optimizes for co-conductance, which
+// is a clustering quality measure defined as follows.
+// Given an undirected graph with weighted edges, for a cluster C define:
+//  * vol(C) = total weighted degree of nodes within C
+//  * E(C) = total weight of all undirected edges with both endpoints in C
+//  * ccond(C) = 2E(C) / vol(C)
+// Then, given an exponent p > 0, we define the coconductance of the clustering
+// C_1, ..., C_k to be sum ccond(C_i)^p for i = i, ..., k
+// This seems to be a reasonable method for finding dense clusters, even in the
+// absence of weights. See go/coconductance-paper for details.
+// The algorithm optimizes co-conductance using Louvain algorithm.
+message CoconductanceConfig {
+  // Deprecated. Use louvain.exponent() instead.
+  optional double exponent = 1 [default = 1.0, deprecated = true];
+
+  message Louvain {
+    // Exponent used in the objective formula. Increasing the exponent results
+    // in a smaller number of clusters. The reasonable range of exponents seems
+    // to be [0.1, 10]. Note that the objective is calculated using double type,
+    // so for large exponents (> 100) the algorithm may suffer from
+    // floating-point precision issues.
+    optional double exponent = 1 [default = 1.0];
+  }
+
+  message ConstantApproximate {
+    optional int32 num_repetitions = 1 [default = 1];
+  }
+
+  // Which algorithm to use to optimize for co-conductance. By default we use
+  // Louvain.
+  oneof algorithm {
+    // Use the Louvain method, adapted to co-conductance setting
+    Louvain louvain = 2;
+
+    // Use the constant-approximate algorithm from go/coconductance-paper. This
+    // is a theoretical algorithm available for benchmarking purposes. It is not
+    // recommended to use it in practice.
+    ConstantApproximate constant_approximate = 3;
+  }
+}

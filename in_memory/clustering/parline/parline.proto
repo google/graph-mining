@@ -1,0 +1,84 @@
+// Copyright 2023 Google LLC
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//      http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+syntax = "proto2";
+
+package graph_mining.in_memory;
+
+import "in_memory/clustering/affinity/affinity.proto";
+
+// Config for the parallel line partitioner (go/parline).
+message LinePartitionerConfig {
+  // Required. Either the number of clusters or the desired (average) cluster
+  // weight must be specified. Value provided must be greater than zero.
+  oneof constraint {
+    int32 num_clusters = 1;
+    // Current implementation uses std::ceil(total_node_weight / cluster_weight)
+    // to convert this to number of clusters.
+    double cluster_weight = 5;
+  }
+
+  // Imbalance desired. Each cluster weight is targeted to be at most
+  //     max((1 + imbalance) W / k, W / k + max_{v in V} w(v))
+  // where W is the total node weight, w(v) is the weight of node v, and k is
+  // the number of clusters.
+  optional float imbalance = 6 [default = 0.05];
+
+  // Method used to embed nodes of a graph into a line (or circle).
+  optional EmbedderConfig embedder_config = 4;
+
+  // If true then a cluster weight is computed as the sum of node weights in
+  // it (otherwise it is the number of nodes).
+  optional bool use_node_weights = 3;
+
+  // Post processing local search done on clusters to improve the quality.
+  optional LocalSearchConfig local_search_config = 7;
+
+  // Deleted fields.
+  reserved 2;
+}
+
+// Config for algorithm used for linear embedding of the input graph.
+message EmbedderConfig {
+  oneof embedder_config {
+    research_graph.in_memory.AffinityClustererConfig affinity_config = 1;
+    // TODO: Add SortingLSH and ParHAC embedding options.
+  }
+}
+
+message LocalSearchConfig {
+  optional PairwiseImproverConfig pairwise_improver_config = 1;
+}
+
+message PairwiseImproverConfig {
+  // Number of improvement iterations where an iteration is defined as
+  // performing local search among all the paired clusters.
+  optional int32 num_improvement_iterations = 1;
+
+  // Cluster pairing method used when two clusters are chosen to swap nodes.
+  message ClusterPairingMethod {
+    enum Name {
+      // See OddEvenPairingScheme function pairing_scheme.h
+      DEFAULT_ODD_EVEN = 0;
+      // See DistancePairingScheme function pairing_scheme.h
+      DISTANCE = 1;
+    }
+    optional Name name = 1;
+
+    // Required when pairing name is set to DISTANCE and must be at least 1.
+    optional int32 distance = 2;
+  }
+
+  optional ClusterPairingMethod cluster_pairing_method = 2;
+}

@@ -1,0 +1,167 @@
+// Copyright 2023 Google LLC
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//      http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+syntax = "proto2";
+
+// TODO: move this to graph_mining.in_memory package.
+package research_graph.in_memory;
+
+// Consider a graph with vertex set V, edge set E, non-negative vertex weights
+// k_u, edge weights w_uv, and a "resolution" parameter which must be
+// non-negative. We define "rescaled" edge weights w'_uv for all u, v, in V as:
+//             { 0                                if u == v
+//             { w_uv - edge_weight_offset -      if {u, v} in E,
+//   w'_{uv} = {   resolution k_u k_v
+//             { -resolution k_u k_v              otherwise
+// Note that when using research_graph.Node protos to store the graph, the edge
+// and node weights default to 1.
+//
+// For bipartite objective computation, see comments preceding
+// `use_bipartite_objective`.
+//
+// The correlation clustering objective is to maximize
+//   sum_{u, v in the same cluster} w'_uv,
+// which is equivalent (up to sign and an additive constant) to the
+// "maximizing agreements" and "minimizing disagreements" formulations of
+// correlation clustering that are used in the approximation algorithms
+// literature. Assuming the total edge weight in the graph is M, modularity
+// partitioning can be expressed in this form by:
+//  * setting resolution = 1/(2*M),
+//  * setting the weight of each node to the total weight of its incident edges.
+// Note that the final correlation clustering objective is monotonic in, but not
+// equal to modularity. In particular, if the correlation clustering objective
+// is C, we have:
+// modularity = (C - resolution * sum_v (deg_v)^2 / (4 * M)) / M.
+// This special case is available as ModularityClusterer in this library.
+//
+// To optimize this objective we use local search. We start with each vertex in
+// its own cluster. We consider moves of the following form: move all vertices
+// in a "move set" S of vertices to either one of the existing clusters or to a
+// newly created cluster. We currently consider the following options for S:
+//  - Each vertex in a singleton move set. This reduces to the classic single
+//    vertex moves.
+//  - One move set per current cluster with all the vertices currently in it.
+//    With these move sets we're effectively considering merging two clusters.
+//  - One move set per cluster from single-level affinity clustering.
+//  - One move set per cluster from a run of the Ailon Charikar Newman
+//    approximation algorithm. The clusters produced by three runs of the Ailon
+//    Charikar Newman algorithm (it's randomized) are used as move sets each
+//    iteration.
+// The local search proceeds with effectively three nested loops. The outermost
+// loop is over the num_iterations iterations. The middle loop is over the four
+// move types listed above. The inner loop is over move sets of the particular
+// type. For each move set considered we move that move set to the cluster that
+// improves the objective the most if an improving move exists.
+// Next available tag: 15
+message CorrelationClustererConfig {
+  // Parameters used by both CorrelationClusterer and
+  // ParallelCorrelationClusterer
+  // The next two fields control how the rescaled edge weights are calculated.
+  // See comment above CorrelationClustererConfig.
+  optional double resolution = 1;
+  optional double edge_weight_offset = 2;
+
+  // Parameters only used by Correlation Clusterer
+  // random_seed is no longer supported due to migration to absl::BitGen and
+  // will return an error if set.
+  optional uint32 random_seed = 3 [deprecated = true];
+
+  // Number of local improvement iterations. Each iteration has runtime linear
+  // in the number of edges.
+  // By default, or if non-positive, a reasonable value is used, currently 10.
+  optional int64 num_iterations = 4;
+
+  oneof initializer {
+    bool initialize_with_backward_greedy = 5;
+  }
+  // Enables the Affinity local move type.
+  optional bool affinity_moves = 6;
+  // The number of Ailon Charikar Newman clusterings to generate for local moves
+  // each iteration. Zero, the default, disables the ACN moves. The reasonable
+  // values are roughly [0, 3].
+  optional int32 num_acn_clusterings_per_iteration = 7;
+
+  // Parameters if Louvain is chosen for the clustering_moves_method.
+  optional LouvainConfig louvain_config = 8;
+
+  // Specifies the algorithm to use for correlation clustering.
+  enum ClusteringMovesMethod {
+    // The default method is the cluster moves method for sequential correlation
+    // clustering (CorrelationClusterer), and the Louvain method for parallel
+    // correlation clustering (ParallelCorrelationClusterer). The Louvain method
+    // offers performance and quality improvements in the parallel setting.
+    DEFAULT = 0;
+    // This method performs the classic Louvain algorithm, where after
+    // rounds of best moves converge, the algorithm compresses clusters into
+    // nodes and then repeats this process on the compressed graph. The
+    // parameters using this algorithm are given in louvain_config.
+    LOUVAIN = 1;
+    // This method involves alternating between single vertex best moves and
+    // entire cluster best moves. An iteration consists of one round of single
+    // vertex best moves and one round of entire cluster best moves. The number
+    // of iterations is as given in num_iterations.
+    CLUSTER_MOVES = 2;
+  }
+  optional ClusteringMovesMethod clustering_moves_method = 9;
+
+  // Specifies whether correlation clustering should perform moves
+  // synchronously, which preserves consistency guarantees. Using the
+  // synchronous setting may produce poorer objective compared to the
+  // asynchronous setting due to a lack of symmetry breaking, but it is
+  // deterministic assuming fixed vertex ids in the input (whereas the
+  // asynchronous setting is non-deterministic). The asynchronous setting is up
+  // to 2.50x faster (median of 1.21x) and gives between a 1.29 -- 156.01%
+  // increase in objective. See go/correlation-clustering-paper for details.
+  optional bool use_synchronous = 10;
+
+  // Specifies whether correlation clustering should perform multi-level
+  // refinement. Multi-level refinement may improve the objective (between a
+  // 1.12 -- 36.92% increase in objective), but at the cost of speed (up to a
+  // 2.29x slowdown with a median of 1.67x) and space (between a 1.40 -- 23.68x
+  // memory overhead over the size of the input graph, whereas without
+  // refinement, the memory overhead is 1.25 -- 3.24x). See
+  // go/correlation-clustering-paper for details.
+  optional bool use_refinement = 11;
+
+  // Specifies whether to use extra space for temporarily holding new clusters.
+  // This should be used only with use_synchronous == false.
+  optional bool use_auxiliary_array_for_temp_cluster_id = 12 [default = true];
+
+  // Specifies whether to use bipartite correlation objective computation.
+  //
+  // When set to true, we adjust the correlation objective computation for a
+  // bipartite graph setting, where we do not penalize missing edges among nodes
+  // within the same graph parition.
+  //
+  // Specifically, we have
+  //
+  //             { 0                                if u == v
+  //             { w_uv - edge_weight_offset -      if {u, v} in E,
+  //   w'_{uv} = {   resolution k_u k_v
+  //             { 0                                if {u, v} is not in E and
+  //             {                                  partition(u) == partition(v)
+  //             { -resolution k_u k_v              otherwise
+  optional bool use_bipartite_objective = 13;
+}
+
+// This config is for clustering using the Louvain algorithm, where the
+// objective is given by another config.
+message LouvainConfig {
+  // Max number of rounds (of best moves and compression) to run.
+  optional int64 num_iterations = 1;
+
+  // Number of best moves rounds to run. This is primarily for parallel
+  // Louvain, which may not terminate otherwise.
+  optional int64 num_inner_iterations = 2;
+}

@@ -1,0 +1,54 @@
+// Copyright 2023 Google LLC
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//      http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+syntax = "proto2";
+
+package graph_mining.in_memory;
+
+message MinimumLinearArrangementConfig {
+  enum CostMetric {
+    // When unspecified, the default is L1_COST_METRIC.
+    COST_METRIC_UNSPECIFIED = 0;
+
+    // Weighted L1 cost metric defined as:
+    //    \sum w_ij*abs(l_i - l_j)
+    // where
+    //    w_ij is the edge weight between node i and node j
+    //    l_i is the location of node i in range [0, n)
+    // NOTE: Both (i,j) and (j,i) are included in the sum.
+    L1_COST_METRIC = 1;
+
+    // Weighted L2 cost metric defined as:
+    //    \sum w_ij*(l_i - l_j)^2
+    // where
+    //    w_ij is the edge weight between node i and node j
+    //    l_i is the location of node i in range [0, n)
+    // NOTE: Both (i,j) and (j,i) are included in the sum.
+    L2_COST_METRIC = 2;
+  }
+  optional CostMetric cost_metric = 1;
+
+  // Max number of iterations. An iteration in this context is defined as
+  // one round of location improvement for all the nodes in the graph.
+  // See kDefaultMaxIterations in minla.cc for the default value used if not
+  // specified.
+  optional int32 max_iterations = 2;
+
+  // Convergence delta. Used as a termination criteria if the cost difference
+  // between two subsequent iterations stays within this delta. Note that this
+  // cost is measured in terms of the intermediate placements computed by the
+  // iterative median/mean algorithm and not the integer locations of the
+  // implied linear arrangement.
+  optional double placement_convergence_delta = 3;
+}

@@ -1,0 +1,43 @@
+// Copyright 2023 Google LLC
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//      http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+syntax = "proto2";
+
+// TODO: move this to graph_mining.in_memory package.
+package research_graph.in_memory;
+
+import "in_memory/clustering/correlation/correlation.proto";
+
+message ModularityClustererConfig {
+  // This parameter controls the weight of the null model in modularity.
+  // If it is higher, "more of" the null model is subtracted from each edge,
+  // so links are "less important", thus communities break up, leading to
+  // smaller clusters. Semantically, "higher resolutions" = "smaller clusters"
+  //
+  // Reasonable settings for the parameter depend on the application, ranging
+  // from 0.5 to 3.0. If possible, tune with Metaclusterer. Note that
+  // resolution = 0.0 will recover connected components, while there always
+  // exists a large enough resolution such that all communities are singletons.
+  //
+  // For some details:
+  //  - https://arxiv.org/pdf/cond-mat/0603718.pdf - introduction of the param
+  //  - https://arxiv.org/pdf/1107.1155.pdf - analysis of the param
+  optional double resolution = 1 [default = 1.0];
+
+  // The current implementation of ModularityClusterer uses CorrelationClusterer
+  // under the hood. The resolution and edge_weight_offset fields of the
+  // provided correlation config will be overridden to acheieve the modularity
+  // objective. Other fields will be passed as provided.
+  optional CorrelationClustererConfig correlation_config = 2;
+}

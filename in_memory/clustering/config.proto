@@ -1,0 +1,84 @@
+// Copyright 2023 Google LLC
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//      http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+syntax = "proto2";
+
+// TODO: move this to graph_mining.in_memory package.
+package research_graph.in_memory;
+
+import public "in_memory/clustering/affinity/affinity.proto";
+import public "in_memory/clustering/correlation/correlation.proto";
+import public "in_memory/clustering/correlation/modularity.proto";
+
+import "in_memory/clustering/coconductance/coconductance.proto";
+import "in_memory/clustering/parline/parline.proto";
+
+
+
+option java_package = "com.google.research.graph.inmemory";
+
+// N.B. this helps avoid go/java-one-version issues as we have other proto files
+// named `config` across our codebase and per the go-link there can be:
+// "conflicts in the wrapper class that java generates using the file name if "
+// there are two .proto files with the same name in the same java application".
+option java_outer_classname = "InMemoryClusteringConfigProto";
+
+// Parallel hierarchical agglomerative clustering (HAC) using the average
+// linkage function. The algorithm that we use is described in go/parhac-paper.
+message ParHacConfig {
+  // This parameter controls the accuracy of the ParHac algorithm. Specifically,
+  // the ParHac algorithm computes a (1+epsilon)^2-approximate dendrogram for
+  // the average-linkage measure (UPGMA-linkage). See
+  // https://en.wikipedia.org/wiki/Hierarchical_clustering for a high-level
+  // overview of the sequential HAC algorithm, and
+  // https://en.wikipedia.org/wiki/UPGMA for the average-linkage measure.
+  //
+  // In more detail, an alpha-approximate ensures that if an (u,v,W_{uv}) edge
+  // is merged, then we have that W_{max}/alpha <= W_{uv}, where W_{max} is the
+  // maximum similarity in the graph at the time of the (u,v) merge. Given a
+  // user-specified value of epsilon, the ParHac algorithm guarantees that
+  // alpha = (1+epsilon)^2.
+  //
+  // Note that if epsilon is not specified, we use a default value of 0.1.
+  optional double epsilon = 2;
+
+  // This parameter is used to *cut* the approximate dendrogram that's obtained
+  // by running the ParHac algorithm. We use the GetSubtreeClustering algorithm
+  // from parallel-dendrogram.h to perform the cut. In the case where the
+  // leaf-to-root paths in the dendrogram are monotonically decreasing, we will
+  // return a clustering induced by the connected components of the dendrogram
+  // where all edges with weight below the weight threshold are removed. Please
+  // see documentation in parallel-dendrogram.h for details when the
+  // leaf-to-root paths are not monotonically decreasing, which may occur in the
+  // ParHac algorithm.
+  optional double weight_threshold = 3;
+}
+
+// Config for InMemoryClusterer subclasses. When adding a new subclass:
+//  a) add a new proto definition to this file,
+//  b) add this proto to the config oneof in ClustererConfig.
+// Next available tag: 17
+message ClustererConfig {
+  oneof config {
+    // Use this to pass parameters to experimental partitioners and
+    // partitioners defined in unittests.
+    bytes parameter_string = 1;
+    AffinityClustererConfig affinity_clusterer_config = 4;
+    CorrelationClustererConfig correlation_clusterer_config = 7;
+    ModularityClustererConfig modularity_clusterer_config = 9;
+    CoconductanceConfig coconductance_config = 12;
+    graph_mining.in_memory.LinePartitionerConfig line_partitioner_config = 14;
+    ParHacConfig parhac_clusterer_config = 15;
+  }
+}

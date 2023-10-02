@@ -1,0 +1,53 @@
+# Bazel workspace file is used to reference external dependencies required to
+# build the project. You can use multiple WORKSPACE.bazel files in the same
+# project to create new workspaces in subdirectories.
+
+load("@bazel_tools//tools/build_defs/repo:git.bzl", "git_repository")
+load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+
+# Google Abseil Libs
+git_repository(
+    name = "com_google_absl",
+    remote = "https://github.com/abseil/abseil-cpp.git",
+    tag = "20230125.2",
+)
+
+http_archive(
+    name = "com_google_protobuf",
+    sha256 = "930c2c3b5ecc6c9c12615cf5ad93f1cd6e12d0aba862b572e076259970ac3a53",
+    strip_prefix = "protobuf-3.21.12",
+    urls = ["https://github.com/protocolbuffers/protobuf/archive/v3.21.12.tar.gz"],
+)
+load("@com_google_protobuf//:protobuf_deps.bzl", "protobuf_deps")
+protobuf_deps()
+
+FARMHASH_COMMIT = "0d859a811870d10f53a594927d0d0b97573ad06d"
+FARMHASH_SHA256 = "18392cf0736e1d62ecbb8d695c31496b6507859e8c75541d7ad0ba092dc52115"
+
+http_archive(
+    name = "farmhash_archive",
+    build_file = "//utils:farmhash.BUILD",
+    sha256 = FARMHASH_SHA256,
+    strip_prefix = "farmhash-{commit}".format(commit = FARMHASH_COMMIT),
+    urls = ["https://github.com/google/farmhash/archive/{commit}.tar.gz".format(commit = FARMHASH_COMMIT)],
+)
+
+http_archive(
+    name = "com_google_googletest",
+    sha256 = "b4870bf121ff7795ba20d20bcdd8627b8e088f2d1dab299a031c1034eddc93d5",
+    strip_prefix = "googletest-release-1.11.0",
+    urls = ["https://github.com/google/googletest/archive/release-1.11.0.tar.gz"],
+)
+
+git_repository(
+    name = "com_github_gbbs",
+    remote = "https://github.com/ParAlg/gbbs.git",
+    commit = "8d512cb62677fa3c878e8a0a0105bc2e38a8ce43",
+)
+
+git_repository(
+    name = "parlaylib",
+    remote = "https://github.com/ParAlg/parlaylib.git",
+    commit = "6b4a4cdbfeb3c481608a42db0230eb6ebb87bf8d",
+    strip_prefix = "include/",
+)

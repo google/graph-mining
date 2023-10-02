@@ -1,0 +1,70 @@
+// Copyright 2023 Google LLC
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//      http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+syntax = "proto2";
+
+// TODO: move this to graph_mining.in_memory package.
+package research_graph;
+
+// Configuration proto for ConvertToUndirected.
+// Next available id: 5
+message ConvertToUndirectedConfig {
+  // Specifies how to compute the edge weight of an edge x -> y, given the
+  // weights of edges x -> y and y -> x. Most of the options are
+  // self-descriptive.
+  enum AsymmetricEdgeTreatment {
+    MAX = 0;
+    MIN = 1;
+    // If the weights differ by more than 1e-6, remove the edges. Otherwise use
+    // one of the two weights.
+    REMOVE = 2;
+    AVG = 3;
+    SUM = 4;
+  }
+  optional AsymmetricEdgeTreatment asymmetric_edge_treatment = 1;
+
+  message Sparsify {
+    // Let s = soft_degree_threshold and h = hard_degree_threshold. The
+    // following steps are performed.
+    //  1. If s is set, for each node we discard all but s edges with highest
+    //     weight (using node id hashes for tiebreaking).
+    //  2. We convert the graph to an undirected one, by adding reciprocal
+    //     edges.
+    //  3. If h is set, we repeat (1) using h as a threshold and then make the
+    //     graph undirected by removing one sided edges.
+    // At least one of *_degree_threshold has to be set.
+    optional int32 soft_degree_threshold = 1;
+    optional int32 hard_degree_threshold = 2;
+    // By default the highest weight edges are keep unless
+    // keep_lowest_weight_edges is set to true.
+    optional bool keep_lowest_weight_edges = 3;
+  }
+
+  // Specifies how to transform the edge set into an undirected graph. Setting
+  // no option is equivalent to setting remove_one_sided_edges to false.
+  oneof edge_set_transformation {
+    // If set to false, the graph is made undirected by adding reciprocal edges.
+    // Otherwise, edges with no reciprocal edges are removed. In *both* cases
+    // the output contains a Node for each endpoint of each edge in the input.
+    // In particular, we may add a Node that ends up being isolated in the
+    // output.
+    bool remove_one_sided_edges = 2;
+
+    // See the comments for Sparsify message above.
+    Sparsify sparsify = 3;
+  }
+
+  // Prefix for Flume counters.
+  optional string counter_prefix = 4 [default = "ConvertToUndirected"];
+}
