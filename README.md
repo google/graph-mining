@@ -1,4 +1,4 @@
-# The Graph Mining Library (go/gm-third-party)
+# The Graph Mining Library
 
 This directory contains code for graph construction, mining and clustering.
 At the moment, it is duplicating some of the internal Graph Mining tools located

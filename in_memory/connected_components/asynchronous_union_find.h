@@ -57,8 +57,8 @@ namespace graph_mining::in_memory {
 //
 // As mentioned above, some of the functions in this class can be implemented in
 // parallel when using ParentArray = parlay::sequence<IntT>. If this is the
-// case, for maximum performance one should ensure that the parlay scheduler
-// exists on the stack, e.g., by using a ParallelSchedulerReference.
+// case, for maximum performance one should ensure that the Parlay scheduler
+// has been initialized.
 //
 // Both Unite and Find are thread-safe and can be called concurrently with each
 // other. Any other function cannot be called concurrently with any other

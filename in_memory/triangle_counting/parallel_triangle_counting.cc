@@ -49,8 +49,8 @@ absl::StatusOr<uint64_t> ParallelTriangleCounting::Count() const {
   auto unused_per_triangle_function = [&](uintE u, uintE v, uintE w) {};
 
   // Triangle_degree_ordering assumes that the neighbors are sorted by node ids.
-  // This is an implicit assumption in the implementation of intersect_f_par
-  // (cf. http://google3/third_party/gbbs/gbbs/intersect.h;l=137;rcl=419861282).
+  // This is an implicit assumption in the implementation of
+  // gbbs::intersect::intersect_f_par
   return ::gbbs::Triangle_degree_ordering(*(graph_.Graph()),
                                           unused_per_triangle_function);
 }

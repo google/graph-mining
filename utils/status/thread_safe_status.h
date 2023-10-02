@@ -34,8 +34,7 @@
 
 namespace graph_mining {
 
-// A thread-safe status class. Copied from
-// google3/contentads/storage/oz/util/thread-safe-status.h.
+// A thread-safe status class.
 class ThreadSafeStatus {
  public:
   absl::Status status() const {

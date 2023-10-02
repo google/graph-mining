@@ -152,8 +152,6 @@ class Dendrogram {
   // (https://gmarti.gitlab.io/ml/2017/09/07/how-to-sort-distance-matrix.html).
   // The returned vector contains node IDs of the original graph in the order
   // they got merged in the dendrogram, i.e. grouping similar nodes together.
-  // This effectively produces a linear embedding of the graph, similar to
-  // http://google3/third_party/graph_mining/in_memory/clustering/parline/affinity_hierarchy_embedder.h
   std::vector<NodeId> GetMergeOrderedNodes() const;
 
   // Returns a vector containing the cluster size of each node. The size of a

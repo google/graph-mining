@@ -185,8 +185,7 @@ absl::Status UndirectedConverterGraph::FinishImport() {
 // CopyGraph is implemented via the importer interface (i.e., PrepareImport -->
 // Import --> FinishImport). We trade performance for extensibility of the API
 // and intentionally avoid in-place construction of the underlying GbbsGraph
-// object using MakeGbbsGraph
-// (http://google3/third_party/graph_mining/in_memory/parallel/parallel_graph_utils.h;l=52;rcl=451939496).
+// object using graph_mining::in_memory::MakeGbbsGraph().
 absl::Status UndirectedConverterGraph::CopyGraph() const {
   RETURN_IF_ERROR(out_graph_->PrepareImport(nodes_.size()));
 
@@ -273,9 +272,6 @@ parlay::sequence<std::tuple<gbbs::uintE, gbbs::uintE, double>> SparsifyHelper(
 
 }  // namespace
 
-// The implementation of `Sparsify` is equivalent to the distributed
-// `ApplySparsifier` function
-// (http://google3/research/graph/utils/convert_to_undirected.cc;l=472;rcl=466836161).
 absl::Status UndirectedConverterGraph::Sparsify() {
   if (!config_.sparsify().has_soft_degree_threshold() &&
       !config_.sparsify().has_hard_degree_threshold()) {
