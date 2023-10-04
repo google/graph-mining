@@ -38,7 +38,7 @@ namespace internal {
 
 // Parameter type for size constraint computation.
 struct SizeConstraintConfig {
-  const research_graph::in_memory::AffinityClustererConfig::SizeConstraint&
+  const AffinityClustererConfig::SizeConstraint&
       size_constraint;
   const std::vector<double>& node_weights;
 };
@@ -101,7 +101,7 @@ absl::StatusOr<GraphWithWeights> CompressGraph(
     gbbs::symmetric_ptr_graph<gbbs::symmetric_vertex, float>& original_graph,
     const std::vector<double>& original_node_weights,
     const std::vector<gbbs::uintE>& cluster_ids,
-    const research_graph::in_memory::AffinityClustererConfig& affinity_config);
+    const AffinityClustererConfig& affinity_config);
 
 // Determine which clusters, as given by cluster_ids, are "finished", where
 // "finished" is defined by AffinityClustererConfig (e.g., a cluster of
@@ -110,7 +110,7 @@ absl::StatusOr<GraphWithWeights> CompressGraph(
 // corresponding vertices are updated to be invalid.
 InMemoryClusterer::Clustering FindFinishedClusters(
     gbbs::symmetric_ptr_graph<gbbs::symmetric_vertex, float>& G,
-    const research_graph::in_memory::AffinityClustererConfig& affinity_config,
+    const AffinityClustererConfig& affinity_config,
     std::vector<gbbs::uintE>& cluster_ids,
     std::vector<gbbs::uintE>& compressed_cluster_ids);
 

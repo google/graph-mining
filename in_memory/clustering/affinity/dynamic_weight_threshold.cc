@@ -21,6 +21,8 @@
 
 namespace research_graph {
 
+using graph_mining::DynamicWeightThresholdConfig;
+
 absl::StatusOr<double> DynamicWeightThreshold(
     const DynamicWeightThresholdConfig& config, int num_iterations,
     int iteration) {

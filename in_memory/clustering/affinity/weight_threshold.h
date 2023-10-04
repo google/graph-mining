@@ -25,7 +25,7 @@ namespace graph_mining::in_memory {
 // If none of the weight_threshold_config fields are set, returns 0.0.
 // Returns an error in case of invalid arguments.
 absl::StatusOr<double> AffinityWeightThreshold(
-    const research_graph::in_memory::AffinityClustererConfig& config,
+    const AffinityClustererConfig& config,
     int iteration);
 
 }  // namespace graph_mining::in_memory

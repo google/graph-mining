@@ -39,7 +39,7 @@ class CoconductanceClusterer : public InMemoryClusterer {
   Graph* MutableGraph() override { return &graph_; }
 
   absl::StatusOr<Clustering> Cluster(
-      const research_graph::in_memory::ClustererConfig& config) const override;
+      const ClustererConfig& config) const override;
 
  private:
   SimpleUndirectedGraph graph_;

@@ -52,7 +52,7 @@ message LinePartitionerConfig {
 // Config for algorithm used for linear embedding of the input graph.
 message EmbedderConfig {
   oneof embedder_config {
-    research_graph.in_memory.AffinityClustererConfig affinity_config = 1;
+    AffinityClustererConfig affinity_config = 1;
     // TODO: Add SortingLSH and ParHAC embedding options.
   }
 }

@@ -38,7 +38,7 @@ class ParallelLinePartitioner : public InMemoryClusterer {
   Graph* MutableGraph() override { return &graph_; }
 
   absl::StatusOr<Clustering> Cluster(
-      const ::research_graph::in_memory::ClustererConfig& config)
+      const ClustererConfig& config)
       const override;
 
  private:

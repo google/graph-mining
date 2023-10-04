@@ -44,7 +44,7 @@ class ClusteringHelper {
 
   ClusteringHelper(
       InMemoryClusterer::NodeId num_nodes,
-      const research_graph::in_memory::ClustererConfig& clusterer_config,
+      const ClustererConfig& clusterer_config,
       const InMemoryClusterer::Clustering& clustering,
       const std::vector<NodePartId>& node_parts)
       : num_nodes_(num_nodes),
@@ -67,7 +67,7 @@ class ClusteringHelper {
 
   ClusteringHelper(
       InMemoryClusterer::NodeId num_nodes,
-      const research_graph::in_memory::ClustererConfig& clusterer_config,
+      const ClustererConfig& clusterer_config,
       std::vector<double> node_weights,
       const InMemoryClusterer::Clustering& clustering,
       const std::vector<NodePartId>& node_parts)
@@ -94,7 +94,7 @@ class ClusteringHelper {
   ClusteringHelper(
       size_t num_nodes, std::vector<ClusterId> cluster_ids,
       std::vector<ClusterId> cluster_sizes, std::vector<double> cluster_weights,
-      const research_graph::in_memory::ClustererConfig& clusterer_config,
+      const ClustererConfig& clusterer_config,
       std::vector<double> node_weights)
       : num_nodes_(num_nodes),
         cluster_ids_(std::move(cluster_ids)),
@@ -197,7 +197,7 @@ class ClusteringHelper {
   std::size_t num_nodes_;
   std::vector<ClusterId> cluster_ids_;
   std::vector<ClusterId> cluster_sizes_;
-  research_graph::in_memory::ClustererConfig clusterer_config_;
+  ClustererConfig clusterer_config_;
   std::vector<double> node_weights_;
   std::vector<double> cluster_weights_;
   std::vector<NodePartId> node_parts_;
@@ -218,7 +218,7 @@ absl::StatusOr<graph_mining::in_memory::GraphWithWeights> CompressGraph(
 
 // Validates CorrelationClustererConfig configuration.
 absl::Status ValidateCorrelationClustererConfigConfig(
-    const research_graph::in_memory::CorrelationClustererConfig& config);
+    const CorrelationClustererConfig& config);
 
 // Metadata used for maintaining the relation regarding node ids, cluster ids,
 // and partition information between the current graph and the compressed graph

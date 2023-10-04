@@ -25,8 +25,6 @@ namespace graph_mining::in_memory {
 
 namespace {
 
-using research_graph::in_memory::ClustererConfig;
-
 struct NodeWeightsTotalWeight {
   std::vector<double> node_weights;
   double total_node_weight;
