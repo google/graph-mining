@@ -32,9 +32,6 @@
 #include "in_memory/parallel/scheduler.h"
 #include "in_memory/status_macros.h"
 
-using ::research_graph::in_memory::AffinityClustererConfig;
-using ::research_graph::in_memory::ClustererConfig;
-
 namespace graph_mining::in_memory {
 
 void AddNewClusters(ParallelAffinityClusterer::Clustering new_clusters,

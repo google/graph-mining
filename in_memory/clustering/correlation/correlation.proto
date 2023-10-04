@@ -14,8 +14,7 @@
 
 syntax = "proto2";
 
-// TODO: move this to graph_mining.in_memory package.
-package research_graph.in_memory;
+package graph_mining.in_memory;
 
 // Consider a graph with vertex set V, edge set E, non-negative vertex weights
 // k_u, edge weights w_uv, and a "resolution" parameter which must be

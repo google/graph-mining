@@ -23,7 +23,7 @@ namespace research_graph {
 // Computes weight threshold for the given iteration of affinity clustering,
 // based on the provided DynamicWeightThresholdConfig.
 absl::StatusOr<double> DynamicWeightThreshold(
-    const DynamicWeightThresholdConfig& config, int num_iteration,
+    const graph_mining::DynamicWeightThresholdConfig& config, int num_iteration,
     int iteration);
 
 }  // namespace research_graph

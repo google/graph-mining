@@ -36,7 +36,7 @@ class ParallelModularityClusterer : public ParallelCorrelationClusterer {
   Graph* MutableGraph() override { return &graph_; }
 
   absl::StatusOr<Clustering> Cluster(
-      const research_graph::in_memory::ClustererConfig& config) const override;
+      const ClustererConfig& config) const override;
 
   // initial_clustering must include every node in the range
   // [0, MutableGraph().NumNodes()) exactly once. If it doesn't this function
@@ -44,7 +44,7 @@ class ParallelModularityClusterer : public ParallelCorrelationClusterer {
   // clustering. (Currently it always returns an error but this may change in
   // the future.)
   absl::Status RefineClusters(
-      const research_graph::in_memory::ClustererConfig& clusterer_config,
+      const ClustererConfig& clusterer_config,
       Clustering* initial_clustering) const override;
 };
 

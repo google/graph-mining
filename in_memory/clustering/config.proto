@@ -14,8 +14,7 @@
 
 syntax = "proto2";
 
-// TODO: move this to graph_mining.in_memory package.
-package research_graph.in_memory;
+package graph_mining.in_memory;
 
 import public "in_memory/clustering/affinity/affinity.proto";
 import public "in_memory/clustering/correlation/correlation.proto";
@@ -78,7 +77,7 @@ message ClustererConfig {
     CorrelationClustererConfig correlation_clusterer_config = 7;
     ModularityClustererConfig modularity_clusterer_config = 9;
     CoconductanceConfig coconductance_config = 12;
-    graph_mining.in_memory.LinePartitionerConfig line_partitioner_config = 14;
+    LinePartitionerConfig line_partitioner_config = 14;
     ParHacConfig parhac_clusterer_config = 15;
   }
 }

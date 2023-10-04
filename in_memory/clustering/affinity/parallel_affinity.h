@@ -52,11 +52,11 @@ class ParallelAffinityClusterer : public InMemoryClusterer {
   Graph* MutableGraph() override { return &graph_; }
 
   absl::StatusOr<Clustering> Cluster(
-      const ::research_graph::in_memory::ClustererConfig& config)
+      const ClustererConfig& config)
       const override;
 
   absl::StatusOr<std::vector<Clustering>> HierarchicalFlatCluster(
-      const ::research_graph::in_memory::ClustererConfig& config)
+      const ClustererConfig& config)
       const override;
 
  private:
