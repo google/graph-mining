@@ -40,8 +40,6 @@
 #include "parlay/primitives.h"
 #include "parlay/sequence.h"
 
-using research_graph::in_memory::AffinityClustererConfig;
-using research_graph::in_memory::ClustererConfig;
 
 namespace graph_mining::in_memory {
 namespace {

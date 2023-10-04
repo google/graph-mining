@@ -37,11 +37,11 @@ std::vector<NodeId> RandomVisitOrder(int num_nodes, absl::BitGenRef rand);
 // purposes.
 std::vector<std::vector<NodeId>> QuickCluster(
     const SimpleUndirectedGraph& graph,
-    const research_graph::in_memory::CorrelationClustererConfig& config,
+    const CorrelationClustererConfig& config,
     const std::vector<NodeId>& visit_order);
 inline std::vector<std::vector<NodeId>> QuickCluster(
     const SimpleUndirectedGraph& graph,
-    const research_graph::in_memory::CorrelationClustererConfig& config,
+    const CorrelationClustererConfig& config,
     absl::BitGenRef rand) {
   return QuickCluster(graph, config, RandomVisitOrder(graph.NumNodes(), rand));
 }

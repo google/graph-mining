@@ -28,7 +28,7 @@ namespace graph_mining::in_memory {
 // ../config.proto.
 double CorrelationClusteringObjective(
     const SimpleUndirectedGraph& graph,
-    const research_graph::in_memory::CorrelationClustererConfig& config,
+    const CorrelationClustererConfig& config,
     const InMemoryClusterer::Clustering& clustering);
 
 // A helper class that keeps track of the sum of edge weights, accounting
@@ -44,7 +44,7 @@ class EdgeSum {
   // negative weight of resolution multiplied by the product of the weights of
   // the two nodes incident to each edge.
   double NetWeight(double sum_prod_node_weights,
-                   const research_graph::in_memory::CorrelationClustererConfig&
+                   const CorrelationClustererConfig&
                        config) const {
     return weight_ - config.resolution() * sum_prod_node_weights;
   }
@@ -80,7 +80,7 @@ class EdgeSum {
 //     we'd have if the graph was complete).
 template <typename ClusterId>
 std::pair<std::optional<ClusterId>, double> BestMoveFromStats(
-    const research_graph::in_memory::CorrelationClustererConfig& config,
+    const CorrelationClustererConfig& config,
     const std::function<double(ClusterId)>& get_current_cluster_weight,
     double moving_nodes_weight,
     absl::flat_hash_map<ClusterId, double>& cluster_moving_weights,
@@ -156,7 +156,7 @@ std::pair<std::optional<ClusterId>, double> BestMoveFromStats(
 // the baseline objective computed in the same way as BestMoveFromStats.
 template <typename ClusterId>
 std::pair<std::optional<ClusterId>, double> BestMoveFromStatsForBipartiteGraph(
-    const research_graph::in_memory::CorrelationClustererConfig& config,
+    const CorrelationClustererConfig& config,
     const std::function<double(ClusterId)>& get_current_cluster_weight,
     const std::array<double, 2>& moving_nodes_weight,
     absl::flat_hash_map<ClusterId, std::array<double, 2>>&

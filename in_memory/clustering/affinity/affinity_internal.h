@@ -47,7 +47,7 @@ std::vector<InMemoryClusterer::NodeId> FlattenClustering(
 absl::StatusOr<std::unique_ptr<SimpleUndirectedGraph>> CompressGraph(
     const SimpleUndirectedGraph& graph,
     const std::vector<InMemoryClusterer::NodeId>& cluster_ids,
-    research_graph::in_memory::AffinityClustererConfig clusterer_config);
+    AffinityClustererConfig clusterer_config);
 
 // Performs a single round of nearest-neighbor clustering. First, each node
 // marks the highest weight incident edge. Then, we compute connected components
@@ -94,13 +94,13 @@ ClusterQualityIndicators ComputeClusterQualityIndicators(
 
 // Returns true if a given cluster, given as a list of distinct NodeIds is an
 // active cluster, wrt the given graph and
-// research_graph::in_memory::AffinityClustererConfig. graph_volume parameter is
+// AffinityClustererConfig. graph_volume parameter is
 // used for performance only. It should be equal to twice the total weight of
 // all undirected edges.
 bool IsActiveCluster(
     const std::vector<InMemoryClusterer::NodeId>& cluster,
     const SimpleUndirectedGraph& graph,
-    const research_graph::in_memory::AffinityClustererConfig& config,
+    const AffinityClustererConfig& config,
     double graph_volume);
 
 }  // namespace graph_mining::in_memory

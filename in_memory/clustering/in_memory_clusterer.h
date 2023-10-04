@@ -113,7 +113,7 @@ class InMemoryClusterer {
   // function may return any of them. You can use CanonicalizeClustering() to
   // get a canonical clustering representation.
   virtual absl::StatusOr<Clustering> Cluster(
-      const research_graph::in_memory::ClustererConfig& config) const = 0;
+      const ClustererConfig& config) const = 0;
 
   // Same as above, except that it returns a sequence of flat clusterings. The
   // last element of the sequence is the final clustering. This is primarily
@@ -123,7 +123,7 @@ class InMemoryClusterer {
   // implementation returns a single-element vector with the result of
   // Cluster().
   virtual absl::StatusOr<std::vector<Clustering>> HierarchicalFlatCluster(
-      const research_graph::in_memory::ClustererConfig& config) const;
+      const ClustererConfig& config) const;
 
   // Returns a family of clusterings represented by a dendrogram in the
   // parent-array format (see dendrogram.h for more details). The resulting
@@ -132,14 +132,14 @@ class InMemoryClusterer {
   // error status, so callers should ensure that the Clusterer being used
   // implements this method.
   virtual absl::StatusOr<Dendrogram> HierarchicalCluster(
-      const research_graph::in_memory::ClustererConfig& config) const;
+      const ClustererConfig& config) const;
 
   // Refines a list of clusters and redirects the given pointer to new clusters.
   // This function is useful for methods that can refine / operate on an
   // existing clustering. It does not take ownership of clustering. The default
   // implementation does nothing and returns OkStatus.
   virtual absl::Status RefineClusters(
-      const research_graph::in_memory::ClustererConfig& config,
+      const ClustererConfig& config,
       Clustering* clustering) const {
     return absl::OkStatus();
   }

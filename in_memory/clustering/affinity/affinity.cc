@@ -29,9 +29,6 @@
 
 namespace graph_mining::in_memory {
 
-using research_graph::in_memory::AffinityClustererConfig;
-using research_graph::in_memory::ClustererConfig;
-
 namespace {
 
 using NodeId = AffinityClusterer::NodeId;

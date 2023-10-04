@@ -33,7 +33,7 @@ class AffinityHierarchyEmbedder : public LinearEmbedder {
   // Constructs an embedder using the given config. Note that several fields of
   // the config are filled in with defaults if not provided.
   explicit AffinityHierarchyEmbedder(
-      const research_graph::in_memory::AffinityClustererConfig& config);
+      const AffinityClustererConfig& config);
   ~AffinityHierarchyEmbedder() override {}
 
   // TODO: Replace std::vector with a parallel version.
@@ -51,7 +51,7 @@ class AffinityHierarchyEmbedder : public LinearEmbedder {
   ComputeAffinityHierarchyPaths(const GbbsGraph& graph);
 
  private:
-  research_graph::in_memory::AffinityClustererConfig affinity_config_;
+  AffinityClustererConfig affinity_config_;
 };
 
 }  // namespace graph_mining::in_memory

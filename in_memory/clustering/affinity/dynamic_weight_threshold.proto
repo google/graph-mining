@@ -14,7 +14,7 @@
 
 syntax = "proto2";
 
-package research_graph;
+package graph_mining;
 
 
 

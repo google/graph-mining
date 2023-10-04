@@ -24,7 +24,7 @@
 
 namespace graph_mining::in_memory {
 
-using research_graph::in_memory::AffinityClustererConfig;
+using research_graph::DynamicWeightThreshold;
 
 absl::StatusOr<double> AffinityWeightThreshold(
     const AffinityClustererConfig& config, int iteration) {

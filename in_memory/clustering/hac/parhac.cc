@@ -35,7 +35,6 @@
 #include "in_memory/parallel/parallel_graph_utils.h"
 #include "in_memory/parallel/scheduler.h"
 
-using ::research_graph::in_memory::ClustererConfig;
 
 namespace graph_mining::in_memory {
 

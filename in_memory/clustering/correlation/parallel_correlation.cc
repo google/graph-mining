@@ -36,8 +36,6 @@ namespace graph_mining::in_memory {
 
 namespace {
 
-using ::research_graph::in_memory::ClustererConfig;
-using ::research_graph::in_memory::CorrelationClustererConfig;
 
 // This struct is necessary to perform an edge map with GBBS over a vertex
 // set. Essentially, all neighbors are valid in this edge map, and this
