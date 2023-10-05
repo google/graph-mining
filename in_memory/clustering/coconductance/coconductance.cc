@@ -39,7 +39,7 @@ namespace in_memory {
 namespace {
 
 using NodeId = InMemoryClusterer::NodeId;
-using research_graph::in_memory::CoconductanceConfig;
+using graph_mining::in_memory::CoconductanceConfig;
 
 std::vector<NodeId> FlattenClustering(
     const std::vector<NodeId>& cluster_ids,
@@ -163,7 +163,7 @@ absl::StatusOr<std::vector<NodeId>> LouvainCoconductance(
 }  // namespace
 
 absl::StatusOr<InMemoryClusterer::Clustering> CoconductanceClusterer::Cluster(
-    const research_graph::in_memory::ClustererConfig& config) const {
+    const graph_mining::in_memory::ClustererConfig& config) const {
   auto graph = std::make_unique<SimpleUndirectedGraph>();
   RETURN_IF_ERROR(CopyGraph(graph_, graph.get()));
   for (NodeId i = 0; i < graph->NumNodes(); ++i) {

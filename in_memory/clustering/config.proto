@@ -15,7 +15,7 @@
 syntax = "proto2";
 
 // TODO: move this to graph_mining.in_memory package.
-package research_graph.in_memory;
+package graph_mining.in_memory;
 
 import public "in_memory/clustering/affinity/affinity.proto";
 import public "in_memory/clustering/correlation/correlation.proto";

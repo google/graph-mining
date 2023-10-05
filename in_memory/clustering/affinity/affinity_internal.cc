@@ -37,7 +37,7 @@
 namespace graph_mining::in_memory {
 
 using NodeId = InMemoryClusterer::NodeId;
-using ::research_graph::in_memory::AffinityClustererConfig;
+using ::graph_mining::in_memory::AffinityClustererConfig;
 
 std::vector<NodeId> FlattenClustering(
     const std::vector<NodeId>& cluster_ids,

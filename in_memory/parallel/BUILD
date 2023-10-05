@@ -86,7 +86,6 @@ cc_library(
     hdrs = ["per_worker.h"],
     deps = [
         "@com_google_absl//absl/log:absl_check",
-        "@parlaylib//parlay:parallel",
         "@parlaylib//parlay:scheduler",
     ],
 )

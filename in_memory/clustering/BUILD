@@ -19,26 +19,6 @@ package(default_visibility = ["//visibility:public"])
 
 licenses(["notice"])
 
-package_group(
-    name = "clients",
-    includes = [
-        "//research/graph:internal",
-        "//research/graph/in_memory/clustering:clients",
-    ],
-    packages = [
-        "//ads/adsui/legoml/configs/trust_graph/assistant/users/ai_actor_intelligence/...",
-        "//geo/mobrank/dining/dish_clustering/...",
-        "//googlex/wing/...",
-        "//indexing/ml/passages/...",
-        "//java/com/google/labs/language/tailwind/...",
-        "//javatests/com/google/labs/language/tailwind/...",
-        "//knowledge/hobbes/mosaic/...",
-        "//maps/trust/automoderation/...",
-        "//music/recs/clustering/...",
-        "//quality/thematic_search/...",
-    ],
-)
-
 cc_library(
     name = "graph",
     srcs = ["graph.cc"],

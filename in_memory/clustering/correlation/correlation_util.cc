@@ -30,7 +30,7 @@ using std::vector;
 
 double CorrelationClusteringObjective(
     const SimpleUndirectedGraph& graph,
-    const research_graph::in_memory::CorrelationClustererConfig& config,
+    const graph_mining::in_memory::CorrelationClustererConfig& config,
     const InMemoryClusterer::Clustering& clustering) {
   double total_agreements = 0;
   vector<ClusterId> cluster_of_node(graph.NumNodes());

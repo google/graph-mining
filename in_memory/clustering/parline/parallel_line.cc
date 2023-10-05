@@ -40,8 +40,8 @@
 #include "parlay/primitives.h"
 #include "parlay/sequence.h"
 
-using research_graph::in_memory::AffinityClustererConfig;
-using research_graph::in_memory::ClustererConfig;
+using graph_mining::in_memory::AffinityClustererConfig;
+using graph_mining::in_memory::ClustererConfig;
 
 namespace graph_mining::in_memory {
 namespace {
@@ -50,7 +50,7 @@ namespace {
 std::unique_ptr<LinearEmbedder> CreateEmbedder(
     const LinePartitionerConfig& line_config) {
   // Currently we support only one embedding method.
-  auto embedder_config = line_config.embedder_config();
+  const EmbedderConfig& embedder_config = line_config.embedder_config();
   switch (embedder_config.embedder_config_case()) {
     case EmbedderConfig::kAffinityConfig: {
       return std::make_unique<AffinityHierarchyEmbedder>(
@@ -89,7 +89,7 @@ parlay::sequence<int> ComputeClusterSizePrefixSum(
 absl::StatusOr<InMemoryClusterer::Clustering> SliceEmbedding(
     const GbbsGraph& graph, int num_clusters,
     const LinePartitionerConfig& line_config) {
-  auto embedder = CreateEmbedder(line_config);
+  std::unique_ptr<LinearEmbedder> embedder = CreateEmbedder(line_config);
   ASSIGN_OR_RETURN(std::vector<gbbs::uintE> embedding,
                    embedder->EmbedGraph(graph));
   ABSL_LOG(INFO) << "Done with (node-unweighted) embedding";
@@ -99,7 +99,7 @@ absl::StatusOr<InMemoryClusterer::Clustering> SliceEmbedding(
   parlay::parallel_for(0, num_clusters, [&](std::size_t i) {
     int start = i == 0 ? 0 : cluster_size_prefix_sum[i - 1];
     int end = cluster_size_prefix_sum[i];
-    auto& cluster = clustering[i];
+    std::vector<int>& cluster = clustering[i];
     cluster.reserve(end - start);
     std::copy(embedding.cbegin() + start, embedding.cbegin() + end,
               std::back_inserter(cluster));
@@ -126,7 +126,7 @@ absl::StatusOr<InMemoryClusterer::Clustering> SliceEmbeddingWeighted(
     const LinePartitionerConfig& line_config) {
   const double cluster_weight =
       ComputeTotalNodeWeight(line_config, graph) / num_clusters;
-  auto embedder = CreateEmbedder(line_config);
+  std::unique_ptr<LinearEmbedder> embedder = CreateEmbedder(line_config);
   std::vector<std::pair<gbbs::uintE, double>> embedding;
   ASSIGN_OR_RETURN(embedding, embedder->EmbedGraphWeighted(graph));
   ABSL_LOG(INFO) << "Done with (node-weighted) embedding";
@@ -169,7 +169,7 @@ absl::StatusOr<int> GetNumberOfClusters(const LinePartitionerConfig& config,
       return absl::InvalidArgumentError(
           "line_config.cluster_size must be a positive non-zero value");
     }
-    auto total_node_weight = ComputeTotalNodeWeight(config, gbbs_graph);
+    double total_node_weight = ComputeTotalNodeWeight(config, gbbs_graph);
     if (total_node_weight <= cluster_size) {
       return absl::InvalidArgumentError(
           "line_config.cluster_size must be less than total node weight");
@@ -185,11 +185,8 @@ InMemoryClusterer::Clustering ImproveClusters(
   if (initial_clusters.empty()) return initial_clusters;
   if (!line_config.has_local_search_config()) {
     ABSL_LOG(INFO) << "No local_search_config set, ignoring post processing.";
-  } else {
-    const auto local_search_config = line_config.local_search_config();
-    if (local_search_config.has_pairwise_improver_config()) {
-      return ImproveClustersPairwise(graph, initial_clusters, line_config);
-    }
+  } else if (line_config.local_search_config().has_pairwise_improver_config()) {
+    return ImproveClustersPairwise(graph, initial_clusters, line_config);
   }
   return initial_clusters;
 }
@@ -216,7 +213,7 @@ absl::StatusOr<InMemoryClusterer::Clustering> ParallelLinePartitioner::Cluster(
   }
   ASSIGN_OR_RETURN(InMemoryClusterer::Clustering initial_clusters,
                    ComputeInitialClusters(graph_, line_config));
-  auto improved_clusters =
+  InMemoryClusterer::Clustering improved_clusters =
       ImproveClusters(graph_, initial_clusters, line_config);
   ABSL_LOG(INFO) << "Done with post processing to improve clusters";
   if (!line_config.use_node_weights()) {

@@ -15,7 +15,7 @@
 syntax = "proto2";
 
 // TODO: move this to graph_mining.in_memory package.
-package research_graph;
+package graph_mining;
 
 // Configuration proto for ConvertToUndirected.
 // Next available id: 5

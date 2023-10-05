@@ -33,7 +33,7 @@
 #include "in_memory/parallel/parallel_sequence_ops.h"
 #include "parlay/sequence.h"
 
-using ::research_graph::in_memory::AffinityClustererConfig;
+using ::graph_mining::in_memory::AffinityClustererConfig;
 
 namespace {
 

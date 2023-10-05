@@ -19,17 +19,6 @@ package(default_visibility = ["//visibility:public"])
 
 licenses(["notice"])
 
-package_group(
-    name = "clients",
-    includes = [
-        "//research/graph:internal",
-        "//research/graph/in_memory/clustering:clients",
-    ],
-    packages = [
-        "//third_party/graph_mining/in_memory/...",
-    ],
-)
-
 cc_library(
     name = "status_macros",
     srcs = ["status_macros.cc"],

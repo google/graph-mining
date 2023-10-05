@@ -18,14 +18,14 @@
 #include "absl/status/statusor.h"
 #include "in_memory/clustering/affinity/dynamic_weight_threshold.pb.h"
 
-namespace research_graph {
+namespace graph_mining::in_memory {
 
 // Computes weight threshold for the given iteration of affinity clustering,
 // based on the provided DynamicWeightThresholdConfig.
 absl::StatusOr<double> DynamicWeightThreshold(
-    const DynamicWeightThresholdConfig& config, int num_iteration,
+    const graph_mining::DynamicWeightThresholdConfig& config, int num_iteration,
     int iteration);
 
-}  // namespace research_graph
+}  // namespace graph_mining::in_memory
 
 #endif  // RESEARCH_GRAPH_CLUSTERING_UTIL_DYNAMIC_WEIGHT_THRESHOLD_H_

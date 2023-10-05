@@ -42,11 +42,11 @@ class ParHacClusterer : public InMemoryClusterer {
   Graph* MutableGraph() override { return &graph_; }
 
   absl::StatusOr<Clustering> Cluster(
-      const ::research_graph::in_memory::ClustererConfig& config)
+      const ::graph_mining::in_memory::ClustererConfig& config)
       const override;
 
   absl::StatusOr<Dendrogram> HierarchicalCluster(
-      const ::research_graph::in_memory::ClustererConfig& config)
+      const ::graph_mining::in_memory::ClustererConfig& config)
       const override;
 
  private:

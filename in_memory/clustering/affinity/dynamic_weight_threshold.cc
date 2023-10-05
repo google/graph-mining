@@ -19,10 +19,10 @@
 #include "absl/status/status.h"
 #include "in_memory/clustering/affinity/dynamic_weight_threshold.pb.h"
 
-namespace research_graph {
+namespace graph_mining::in_memory {
 
 absl::StatusOr<double> DynamicWeightThreshold(
-    const DynamicWeightThresholdConfig& config, int num_iterations,
+    const graph_mining::DynamicWeightThresholdConfig& config, int num_iterations,
     int iteration) {
   if (num_iterations < 1)
     return absl::InvalidArgumentError("num_iterations must be >= 1");
@@ -42,12 +42,12 @@ absl::StatusOr<double> DynamicWeightThreshold(
   const double lower_bound = config.lower_bound();
   double dynamic_threshold;
   switch (config.weight_decay_function()) {
-    case DynamicWeightThresholdConfig::LINEAR_DECAY:
+    case graph_mining::DynamicWeightThresholdConfig::LINEAR_DECAY:
       dynamic_threshold =
           upper_bound -
           ((upper_bound - lower_bound) / (num_iterations - 1)) * iteration;
       return dynamic_threshold;
-    case DynamicWeightThresholdConfig::EXPONENTIAL_DECAY:
+    case graph_mining::DynamicWeightThresholdConfig::EXPONENTIAL_DECAY:
       if (lower_bound <= 0 || upper_bound <= 0)
         return absl::InvalidArgumentError(
             "lower and upper bounds need to positive, if EXPONENTIAL_DECAY is "
@@ -64,4 +64,4 @@ absl::StatusOr<double> DynamicWeightThreshold(
   }
 }
 
-}  // namespace research_graph
+}  // namespace graph_mining::in_memory

@@ -39,13 +39,13 @@ absl::Status InMemoryClusterer::Graph::FinishImport() {
 
 absl::StatusOr<InMemoryClusterer::Dendrogram>
 InMemoryClusterer::HierarchicalCluster(
-    const research_graph::in_memory::ClustererConfig& config) const {
+    const graph_mining::in_memory::ClustererConfig& config) const {
   return absl::UnimplementedError("HierarchicalCluster not implemented.");
 }
 
 absl::StatusOr<std::vector<InMemoryClusterer::Clustering>>
 InMemoryClusterer::HierarchicalFlatCluster(
-    const research_graph::in_memory::ClustererConfig& config) const {
+    const graph_mining::in_memory::ClustererConfig& config) const {
   Clustering clusters;
   ASSIGN_OR_RETURN(clusters, Cluster(config));
   return std::vector<Clustering>{clusters};

@@ -25,8 +25,7 @@
 namespace graph_mining::in_memory {
 
 // Parallel Modularity Clusterer. Uses ParallelCorrelationClusterer to optimize
-// the modularity partition score. See
-// research/graph/in_memory/clustering/config.proto for more details.
+// the modularity partition score.
 class ParallelModularityClusterer : public ParallelCorrelationClusterer {
  public:
   using InMemoryClusterer::Clustering;
@@ -36,7 +35,7 @@ class ParallelModularityClusterer : public ParallelCorrelationClusterer {
   Graph* MutableGraph() override { return &graph_; }
 
   absl::StatusOr<Clustering> Cluster(
-      const research_graph::in_memory::ClustererConfig& config) const override;
+      const graph_mining::in_memory::ClustererConfig& config) const override;
 
   // initial_clustering must include every node in the range
   // [0, MutableGraph().NumNodes()) exactly once. If it doesn't this function
@@ -44,7 +43,7 @@ class ParallelModularityClusterer : public ParallelCorrelationClusterer {
   // clustering. (Currently it always returns an error but this may change in
   // the future.)
   absl::Status RefineClusters(
-      const research_graph::in_memory::ClustererConfig& clusterer_config,
+      const graph_mining::in_memory::ClustererConfig& clusterer_config,
       Clustering* initial_clustering) const override;
 };
 

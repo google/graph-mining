@@ -3,7 +3,7 @@
 This project includes some tools by the [Google Graph Mining team](https://research.google/teams/graph-mining/), namely in-memory
 clustering. Our tools can be used for solving data mining and machine learning
 problems that either inherently have a graph structure or can be formalized as
-graph problems. For more information, see our [NeurIPS'20 workshop](https://gm-neurips-2020.github.io/).
+graph problems. For more information, see our [NeurIPS'20 workshop]( https://gm-neurips-2020.github.io/).
 
 Among others, this repository contains shared memory parallel clustering algorithms which scale to graphs with tens of billions of edges and are based on the following research papers:
 

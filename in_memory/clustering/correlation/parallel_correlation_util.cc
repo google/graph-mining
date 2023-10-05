@@ -40,7 +40,7 @@ namespace graph_mining::in_memory {
 
 using NodeId = InMemoryClusterer::NodeId;
 using ClusterId = ClusteringHelper::ClusterId;
-using ::research_graph::in_memory::CorrelationClustererConfig;
+using ::graph_mining::in_memory::CorrelationClustererConfig;
 
 void ClusteringHelper::ResetClustering(
     const std::vector<ClusterId>& cluster_ids,

@@ -20,7 +20,7 @@
 #include "in_memory/clustering/gbbs_graph.h"
 #include "in_memory/pagerank/pagerank.pb.h"
 
-namespace third_party::graph_mining {
+namespace graph_mining::in_memory {
 
 class ParallelPageRank {
  public:
@@ -41,6 +41,6 @@ class ParallelPageRank {
   ::graph_mining::in_memory::PageRankConfig config_;
 };
 
-}  // namespace third_party::graph_mining
+}  // namespace graph_mining::in_memory
 
 #endif  // THIRD_PARTY_GRAPH_MINING_IN_MEMORY_PAGERANK_PARALLEL_PAGERANK_H_

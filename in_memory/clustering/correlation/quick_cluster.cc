@@ -25,7 +25,7 @@
 #include "in_memory/clustering/types.h"
 
 namespace graph_mining::in_memory {
-using ::research_graph::in_memory::CorrelationClustererConfig;
+using ::graph_mining::in_memory::CorrelationClustererConfig;
 using ::std::vector;
 
 vector<NodeId> RandomVisitOrder(int num_nodes, absl::BitGenRef rand) {

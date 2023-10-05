@@ -15,7 +15,7 @@
 syntax = "proto2";
 
 // TODO: move this to graph_mining.in_memory package.
-package research_graph.in_memory;
+package graph_mining.in_memory;
 
 // Config for CoconductanceClusterer, which optimizes for co-conductance, which
 // is a clustering quality measure defined as follows.

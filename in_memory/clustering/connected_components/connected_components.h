@@ -27,7 +27,7 @@ class ParallelConnectedComponentsClusterer : public InMemoryClusterer {
   Graph* MutableGraph() override { return &graph_; }
 
   absl::StatusOr<Clustering> Cluster(
-      const research_graph::in_memory::ClustererConfig& config) const override {
+      const graph_mining::in_memory::ClustererConfig& config) const override {
     
     const auto& parents = graph_.ParentArray();
 

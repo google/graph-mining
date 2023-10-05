@@ -21,7 +21,7 @@
 
 using ::gbbs::uintE;
 
-namespace third_party::graph_mining {
+namespace graph_mining::in_memory {
 
 absl::StatusOr<uint64_t> ParallelTriangleCounting::Count() const {
   if (graph_.Graph() == nullptr) {
@@ -42,4 +42,4 @@ absl::StatusOr<uint64_t> ParallelTriangleCounting::Count() const {
                                           unused_per_triangle_function);
 }
 
-}  // namespace third_party::graph_mining
+}  // namespace graph_mining::in_memory

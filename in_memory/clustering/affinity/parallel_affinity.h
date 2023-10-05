@@ -35,12 +35,12 @@ namespace graph_mining::in_memory {
 
 // An in-memory counterpart of go/affinity-clustering (see the link for
 // algorithm description). Also, implements the functionality of
-// research_graph::AffinityPartitioner. The parameters to this clusterer are
+// graph_mining::AffinityPartitioner. The parameters to this clusterer are
 // specified using AffinityClustererConfig proto. In the returned clustering,
 // each node is assigned to exactly one cluster.
 //
 // The important addition to distributed affinity clustering (borrowed from
-// research_graph::AffinityPartitioner) is that after each step only nodes
+// graph_mining::AffinityPartitioner) is that after each step only nodes
 // belonging to "unfinished clusters" are retained for the following step. (an
 // "unfinished cluster" may be, e.g., a cluster of sufficient density, or
 // conductance - this is controlled by AffinityClustererConfig). Nodes belonging
@@ -52,11 +52,11 @@ class ParallelAffinityClusterer : public InMemoryClusterer {
   Graph* MutableGraph() override { return &graph_; }
 
   absl::StatusOr<Clustering> Cluster(
-      const ::research_graph::in_memory::ClustererConfig& config)
+      const ::graph_mining::in_memory::ClustererConfig& config)
       const override;
 
   absl::StatusOr<std::vector<Clustering>> HierarchicalFlatCluster(
-      const ::research_graph::in_memory::ClustererConfig& config)
+      const ::graph_mining::in_memory::ClustererConfig& config)
       const override;
 
  private:

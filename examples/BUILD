@@ -15,11 +15,6 @@
 load("@com_google_protobuf//:protobuf.bzl", "py_proto_library")
 load("@rules_proto//proto:defs.bzl", "proto_library")
 
-package(
-    default_applicable_licenses = ["//third_party/graph_mining:license"],
-    default_visibility = ["//visibility:public"],
-)
-
 licenses(["notice"])
 
 cc_binary(

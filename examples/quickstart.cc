@@ -23,7 +23,7 @@
 
 using graph_mining::in_memory::ParHacClusterer;
 using graph_mining::in_memory::SimpleUndirectedGraph;
-using research_graph::in_memory::ClustererConfig;
+using graph_mining::in_memory::ClustererConfig;
 
 absl::Status ClusteringExample() {
   // Initialize a graph, where higher weight = more similar.

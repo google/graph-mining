@@ -35,19 +35,19 @@ class ParallelCorrelationClusterer : public InMemoryClusterer {
   Graph* MutableGraph() override { return &graph_; }
 
   absl::StatusOr<Clustering> Cluster(
-      const research_graph::in_memory::ClustererConfig& config) const override;
+      const graph_mining::in_memory::ClustererConfig& config) const override;
 
   // initial_clustering must include every node in the range
   // [0, MutableGraph().NumNodes()) exactly once.
   absl::Status RefineClusters(
-      const research_graph::in_memory::ClustererConfig& clusterer_config,
+      const graph_mining::in_memory::ClustererConfig& clusterer_config,
       Clustering* initial_clustering) const override;
 
  protected:
   graph_mining::in_memory::GbbsGraph graph_;
 
   absl::Status RefineClusters(
-      const research_graph::in_memory::ClustererConfig& clusterer_config,
+      const graph_mining::in_memory::ClustererConfig& clusterer_config,
       InMemoryClusterer::Clustering* initial_clustering,
       ClusteringHelper* initial_helper) const;
 };

@@ -19,7 +19,7 @@
 #include "benchmarks/PageRank/PageRank.h"
 #include "in_memory/parallel/scheduler.h"
 
-namespace third_party::graph_mining {
+namespace graph_mining::in_memory {
 
   absl::StatusOr<parlay::sequence<double>> ParallelPageRank::Run() const {
     if (graph_.Graph() == nullptr) {
@@ -32,4 +32,4 @@ namespace third_party::graph_mining {
                           config_.num_iterations());
   }
 
-}  // namespace third_party::graph_mining
+}  // namespace graph_mining::in_memory

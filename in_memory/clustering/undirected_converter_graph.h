@@ -32,7 +32,7 @@ namespace in_memory {
 class UndirectedConverterGraph : public InMemoryClusterer::Graph {
  public:
   UndirectedConverterGraph(
-      const ::research_graph::ConvertToUndirectedConfig& config,
+      const ::graph_mining::ConvertToUndirectedConfig& config,
       InMemoryClusterer::Graph* out_graph);
   absl::Status Import(AdjacencyList adjacency_list) override;
   absl::Status FinishImport() override;
@@ -45,7 +45,7 @@ class UndirectedConverterGraph : public InMemoryClusterer::Graph {
   absl::Status Sparsify();
 
   // Undirected conversion configuration.
-  const ::research_graph::ConvertToUndirectedConfig config_;
+  const ::graph_mining::ConvertToUndirectedConfig config_;
 
   // Holds edges after FinishImport is called.
   parlay::sequence<std::tuple<gbbs::uintE, gbbs::uintE, double>> edges_;

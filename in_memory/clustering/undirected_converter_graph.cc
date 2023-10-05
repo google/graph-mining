@@ -45,7 +45,7 @@ namespace in_memory {
 constexpr int kPerThreadBufferSize = 1024 * 1024;
 
 UndirectedConverterGraph::UndirectedConverterGraph(
-    const ::research_graph::ConvertToUndirectedConfig& config,
+    const ::graph_mining::ConvertToUndirectedConfig& config,
     InMemoryClusterer::Graph* out_graph)
     : config_(config),
       edge_buffer_(kPerThreadBufferSize),
@@ -71,10 +71,10 @@ absl::Status UndirectedConverterGraph::FinishImport() {
   // TODO: Add a factory method and move the validation to an
   // earlier stage.
   if (config_.asymmetric_edge_treatment() !=
-          research_graph::ConvertToUndirectedConfig::
+          graph_mining::ConvertToUndirectedConfig::
               AsymmetricEdgeTreatment_MAX &&
       config_.asymmetric_edge_treatment() !=
-          research_graph::ConvertToUndirectedConfig::
+          graph_mining::ConvertToUndirectedConfig::
               AsymmetricEdgeTreatment_MIN) {
     return absl::InvalidArgumentError(absl::StrCat(
         "Unsupported ConvertToUndirectedConfig: ", config_.DebugString()));
@@ -101,7 +101,7 @@ absl::Status UndirectedConverterGraph::FinishImport() {
                (std::tie(std::get<0>(a), std::get<1>(a)) ==
                     std::tie(std::get<0>(b), std::get<1>(b)) &&
                 (config_.asymmetric_edge_treatment() ==
-                         research_graph::ConvertToUndirectedConfig::
+                         graph_mining::ConvertToUndirectedConfig::
                              AsymmetricEdgeTreatment_MAX
                      ? std::get<2>(a) > std::get<2>(b)
                      : std::get<2>(a) < std::get<2>(b)));

@@ -15,7 +15,7 @@
 syntax = "proto2";
 
 // TODO: move this to graph_mining.in_memory package.
-package research_graph.in_memory;
+package graph_mining.in_memory;
 
 // Consider a graph with vertex set V, edge set E, non-negative vertex weights
 // k_u, edge weights w_uv, and a "resolution" parameter which must be
@@ -24,7 +24,7 @@ package research_graph.in_memory;
 //             { w_uv - edge_weight_offset -      if {u, v} in E,
 //   w'_{uv} = {   resolution k_u k_v
 //             { -resolution k_u k_v              otherwise
-// Note that when using research_graph.Node protos to store the graph, the edge
+// Note that when using graph_mining.Node protos to store the graph, the edge
 // and node weights default to 1.
 //
 // For bipartite objective computation, see comments preceding

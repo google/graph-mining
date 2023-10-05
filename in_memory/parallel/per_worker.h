@@ -18,7 +18,6 @@
 #include <vector>
 
 #include "absl/log/absl_check.h"
-#include "parlay/parallel.h"
 #include "parlay/scheduler.h"
 
 namespace graph_mining::in_memory {

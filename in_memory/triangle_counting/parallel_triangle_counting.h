@@ -18,7 +18,7 @@
 #include "in_memory/clustering/gbbs_graph.h"
 #include "in_memory/clustering/in_memory_clusterer.h"
 
-namespace third_party::graph_mining {
+namespace graph_mining::in_memory {
 
 // Parallel triangle counting.
 class ParallelTriangleCounting {
@@ -36,6 +36,6 @@ class ParallelTriangleCounting {
   ::graph_mining::in_memory::UnweightedSortedNeighborGbbsGraph graph_;
 };
 
-}  // namespace third_party::graph_mining
+}  // namespace graph_mining::in_memory
 
 #endif  // THIRD_PARTY_GRAPH_MINING_IN_MEMORY_TRIANGLE_COUNTING_PARALLEL_TRIANGLE_COUNTING_H_
