@@ -52,6 +52,11 @@ message LinePartitionerConfig {
 // Config for algorithm used for linear embedding of the input graph.
 message EmbedderConfig {
   oneof embedder_config {
+    // Please see AffinityConfigWithDefaults function in
+    // affinity_hierarchy_embedder.cc for the default values used for a few
+    // unset fields.
+    // Also any EdgeAggregationFunction that relies on node weights (such as
+    // AVERAGE) is currently not supported.
     graph_mining.in_memory.AffinityClustererConfig affinity_config = 1;
     // TODO: Add SortingLSH and ParHAC embedding options.
   }

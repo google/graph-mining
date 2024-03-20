@@ -90,6 +90,12 @@ RetrieveInterClusterEdges(
     auto vtx = original_graph.get_vertex(j);
     gbbs::uintE i = 0;
     if (cluster_ids[j] != UINT_E_MAX) {
+      // Maps each (directed) graph edge, handling both inter- and intra-cluster
+      // edges. For intra-cluster edges, it processes each undirected edge once,
+      // regardless of whether it is a self-loop edge or not (as we need to
+      // produce exactly one self-loop from them). For inter-cluster edges, it
+      // processes each directed edge once, thus creating the bi-directional
+      // edges in the resulting graph.
       auto map_f = [&](gbbs::uintE u, gbbs::uintE v, float weight) {
         if (is_valid_func(cluster_ids[v], cluster_ids[u]) &&
             cluster_ids[v] != UINT_E_MAX &&

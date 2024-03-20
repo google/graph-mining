@@ -21,6 +21,7 @@
 #include <utility>
 #include <vector>
 
+#include "absl/flags/declare.h"
 #include "absl/log/absl_check.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
@@ -30,6 +31,8 @@
 #include "in_memory/clustering/in_memory_clusterer.h"
 #include "in_memory/clustering/types.h"
 #include "in_memory/parallel/parallel_graph_utils.h"
+
+ABSL_DECLARE_FLAG(bool, enable_cc_self_loop_bug_fix);
 
 namespace graph_mining::in_memory {
 
@@ -89,19 +92,22 @@ class ClusteringHelper {
     SetClustering(clustering);
   }
 
-  // Constructor for testing purposes, to outright set cluster_ids_ and
-  // cluster_sizes_.
+  // Constructor for testing purposes, to outright set ClusteringHelper data
+  // members.
   ClusteringHelper(
       size_t num_nodes, std::vector<ClusterId> cluster_ids,
       std::vector<ClusterId> cluster_sizes, std::vector<double> cluster_weights,
       const graph_mining::in_memory::ClustererConfig& clusterer_config,
-      std::vector<double> node_weights)
+      std::vector<double> node_weights, std::vector<NodePartId> node_parts = {},
+      std::vector<std::array<double, 2>> partitioned_cluster_weights = {})
       : num_nodes_(num_nodes),
         cluster_ids_(std::move(cluster_ids)),
         cluster_sizes_(std::move(cluster_sizes)),
         clusterer_config_(clusterer_config),
         node_weights_(std::move(node_weights)),
-        cluster_weights_(cluster_weights) {}
+        cluster_weights_(std::move(cluster_weights)),
+        node_parts_(std::move(node_parts)),
+        partitioned_cluster_weights_(std::move(partitioned_cluster_weights)) {}
 
   // Contains objective change, which includes:
   //  * A vector of tuples, indicating the objective change for the
@@ -157,7 +163,8 @@ class ClusteringHelper {
       gbbs::symmetric_ptr_graph<gbbs::symmetric_vertex, float>& graph,
       InMemoryClusterer::NodeId moving_node);
 
-  // Compute the objective of the current clustering
+  // Compute the objective of the current clustering. See correlation.proto for
+  // details on how it's computed.
   double ComputeObjective(
       gbbs::symmetric_ptr_graph<gbbs::symmetric_vertex, float>& graph);
 
@@ -167,7 +174,7 @@ class ClusteringHelper {
 
   const std::vector<double>& ClusterWeights() const { return cluster_weights_; }
 
-  const std::vector<NodePartId>& NodeParts() const {return node_parts_; }
+  const std::vector<NodePartId>& NodeParts() const { return node_parts_; }
 
   const std::vector<std::array<double, 2>>& PartitionedClusterWeights() const {
     return partitioned_cluster_weights_;
@@ -211,6 +218,7 @@ class ClusteringHelper {
 // Given cluster ids and a graph, compress the graph such that the new
 // vertices are the cluster ids and the edges are aggregated by sum.
 // Self-loops preserve the total weight of the undirected edges in the clusters.
+// The helper is only used to provide the node weights.
 absl::StatusOr<graph_mining::in_memory::GraphWithWeights> CompressGraph(
     gbbs::symmetric_ptr_graph<gbbs::symmetric_vertex, float>& original_graph,
     const std::vector<gbbs::uintE>& cluster_ids,

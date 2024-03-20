@@ -23,5 +23,16 @@ cc_library(
     name = "math",
     srcs = ["math.cc"],
     hdrs = ["math.h"],
-    deps = ["@com_google_absl//absl/numeric:bits"],
+    deps = [
+        "@com_google_absl//absl/log:absl_check",
+        "@com_google_absl//absl/numeric:bits",
+    ],
+)
+
+cc_library(
+    name = "timer",
+    hdrs = ["timer.h"],
+    deps = [
+        "@com_google_absl//absl/time",
+    ],
 )

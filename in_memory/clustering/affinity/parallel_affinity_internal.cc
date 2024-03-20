@@ -15,6 +15,7 @@
 #include "in_memory/clustering/affinity/parallel_affinity_internal.h"
 
 #include <algorithm>
+#include <cstddef>
 #include <functional>
 #include <limits>
 #include <memory>
@@ -23,15 +24,25 @@
 #include <utility>
 #include <vector>
 
+#include "absl/container/flat_hash_map.h"
 #include "absl/log/absl_check.h"
 #include "absl/log/absl_log.h"
 #include "absl/status/statusor.h"
+#include "absl/types/span.h"
+#include "gbbs/bridge.h"
+#include "gbbs/graph.h"
 #include "gbbs/macros.h"
+#include "gbbs/vertex.h"
 #include "in_memory/clustering/in_memory_clusterer.h"
 #include "in_memory/connected_components/asynchronous_union_find.h"
 #include "in_memory/parallel/parallel_graph_utils.h"
 #include "in_memory/parallel/parallel_sequence_ops.h"
+#include "in_memory/tree_partitioner/min_size_tree_partitioning.h"
+#include "parlay/monoid.h"
+#include "parlay/parallel.h"
+#include "parlay/primitives.h"
 #include "parlay/sequence.h"
+#include "parlay/slice.h"
 
 using ::graph_mining::in_memory::AffinityClustererConfig;
 
@@ -47,6 +58,23 @@ struct PerVertexClusterStats {
 inline double GetNodeWeight(const std::vector<double>& node_weights,
                             const gbbs::uintE id) {
   return node_weights.empty() ? 1 : node_weights[id];
+}
+
+// Compresses the cluster ids to consecutive integers in the range from 0 to
+// num_clusters - 1.
+std::vector<gbbs::uintE> CompressClusterIds(
+    const absl::Span<const gbbs::uintE>& cluster_ids) {
+  auto unique_ids = parlay::remove_duplicates(cluster_ids);
+  parlay::sort_inplace(unique_ids);
+  parlay::sequence<gbbs::uintE> cluster_id_to_rank(cluster_ids.size());
+  parlay::parallel_for(0, unique_ids.size(), [&](gbbs::uintE i) {
+    cluster_id_to_rank[unique_ids[i]] = i;
+  });
+  std::vector<gbbs::uintE> compressed_cluster_ids(cluster_ids.size());
+  parlay::parallel_for(0, cluster_ids.size(), [&](gbbs::uintE i) {
+    compressed_cluster_ids[i] = cluster_id_to_rank[cluster_ids[i]];
+  });
+  return compressed_cluster_ids;
 }
 
 }  // namespace
@@ -224,7 +252,8 @@ absl::StatusOr<std::vector<gbbs::uintE>> NearestNeighborLinkage(
     const auto& size_constraint =
         size_constraint_config.value().size_constraint;
     if (size_constraint.has_max_cluster_size() ||
-        size_constraint.has_min_cluster_size()) {
+        size_constraint.has_min_cluster_size() ||
+        size_constraint.has_target_cluster_size()) {
       auto label_seq =
           EnforceMaxClusterSize(*size_constraint_config, labels.ComponentIds(),
                                 std::move(best_neighbors));
@@ -233,7 +262,7 @@ absl::StatusOr<std::vector<gbbs::uintE>> NearestNeighborLinkage(
   }
 
   auto component_ids = labels.ComponentIds();
-  return std::vector<gbbs::uintE>(component_ids.begin(), component_ids.end());
+  return CompressClusterIds(component_ids);
 }
 
 absl::StatusOr<GraphWithWeights> CompressGraph(
@@ -484,6 +513,11 @@ parlay::sequence<gbbs::uintE> EnforceMaxClusterSize(
   }
 
   AsynchronousUnionFind<gbbs::uintE> labels(n);
+  bool use_target_cluster_size = size_constraint.has_target_cluster_size() &&
+                                 size_constraint.target_cluster_size() > 0;
+  // labels_after_final_partition will be used only when
+  // use_target_cluster_size is true.
+  AsynchronousUnionFind<gbbs::uintE> labels_after_final_partition(n);
 
   parlay::parallel_for(0, cluster_groups.size(), [&](std::size_t i) {
     auto& node_idx = cluster_groups[i];
@@ -497,6 +531,21 @@ parlay::sequence<gbbs::uintE> EnforceMaxClusterSize(
                  std::forward_as_tuple(-best_neighbors[rhs].weight,
                                        node_weights[rhs], rhs);
         });
+
+    // The following containers will be used only when use_target_cluster_size
+    // is true.
+    absl::flat_hash_map<gbbs::uintE, int> node_index_inside_the_group;
+    std::vector<int> affinity_forest_parent_ids;
+    std::vector<double> affinity_forest_node_weights;
+    if (use_target_cluster_size) {
+      affinity_forest_parent_ids.reserve(node_idx.size());
+      affinity_forest_node_weights.reserve(node_idx.size());
+      affinity_forest_parent_ids.resize(node_idx.size(), -1);
+      for (int j = 0; j < node_idx.size(); ++j) {
+        node_index_inside_the_group[node_idx[j]] = j;
+        affinity_forest_node_weights.push_back(node_weights[node_idx[j]]);
+      }
+    }
 
     // Sequentially process nodes in the group according to the sorted node
     // indices. Given that each node belongs to exactly one group, it is safe to
@@ -529,6 +578,10 @@ parlay::sequence<gbbs::uintE> EnforceMaxClusterSize(
       if (!size_constraint.has_max_cluster_size() ||
           total_weight <= size_constraint.max_cluster_size()) {
         labels.Unite(node_root, neighbor_root);
+        if (use_target_cluster_size) {
+          affinity_forest_parent_ids[node_index_inside_the_group[node_id]] =
+              node_index_inside_the_group[best_neighbor_node_id];
+        }
 
         // Update the node weight of the new parent after the merge. Note that
         // there is no need to update the weight of the other node which becomes
@@ -537,9 +590,31 @@ parlay::sequence<gbbs::uintE> EnforceMaxClusterSize(
         node_weights[labels.Find(node_root)] = total_weight;
       }
     }
+
+    if (use_target_cluster_size) {
+      const auto partition_result =
+          graph_mining::in_memory::MinWeightedSizeTreePartitioning(
+              affinity_forest_parent_ids, affinity_forest_node_weights,
+              size_constraint.target_cluster_size());
+      const auto& parent_index = *partition_result;
+      for (int j = 0; j < parent_index.size(); ++j) {
+        if (parent_index[j] != -1) {
+          auto current_node_root =
+              labels_after_final_partition.Find(node_idx[j]);
+          auto parent_node_root =
+              labels_after_final_partition.Find(node_idx[parent_index[j]]);
+          labels_after_final_partition.Unite(current_node_root,
+                                             parent_node_root);
+        }
+      }
+    }
   });
 
-  return std::move(labels).ComponentSequence();
+  if (use_target_cluster_size) {
+    return std::move(labels_after_final_partition).ComponentSequence();
+  } else {
+    return std::move(labels).ComponentSequence();
+  }
 }
 
 }  // namespace internal

@@ -23,6 +23,7 @@
 #include <vector>
 
 #include "absl/log/absl_log.h"
+#include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "in_memory/clustering/config.pb.h"
 #include "in_memory/clustering/correlation/parallel_correlation_util.h"
@@ -276,6 +277,10 @@ absl::Status ParallelCorrelationClusterer::RefineClusters(
   const auto& config = clusterer_config.correlation_clusterer_config();
   RETURN_IF_ERROR(ValidateCorrelationClustererConfigConfig(config));
 
+  if (config.use_bipartite_objective() && !graph_.IsValidBipartiteGraph()) {
+    return absl::InvalidArgumentError("Invalid bipartite graph.");
+  }
+
   std::unique_ptr<symmetric_ptr_graph> compressed_graph;
 
   // Set number of iterations based on clustering method
@@ -298,7 +303,7 @@ absl::Status ParallelCorrelationClusterer::RefineClusters(
       break;
     default:
       ABSL_LOG(FATAL) << "Unknown clustering moves method: "
-                 << config.clustering_moves_method();
+                      << config.clustering_moves_method();
   }
 
   double max_objective = initial_helper->ComputeObjective(*(graph_.Graph()));
@@ -369,14 +374,21 @@ absl::Status ParallelCorrelationClusterer::RefineClusters(
         (iter == 0) ? graph_.Graph() : compressed_graph.get();
     auto helper = (iter == 0) ? initial_helper : current_helper.get();
 
-    // Iterate over best moves
+    // Iterate over best moves.
     // TODO: refactor local_cluster_ids to be a return value of
     // IterateBestMoves.
     auto new_objective =
         IterateBestMoves(current_graph, helper, local_cluster_ids,
                          max_objective, num_inner_iterations, clusterer_config);
 
-    // If no moves can be made at all, exit
+    // If no moves can be made at all, exit.
+    // Note that the objective is comparable across different levels, as the
+    // implementation uses the following trick: when contracting a graph and we
+    // contract a cluster C_v into a node v, we add a self-loop at v, whose
+    // weight is the total weight of all undirected edges within C. This ensures
+    // that once we contract some clustering C of G, and obtain a graph H, the
+    // objective of clustering C in G is equal to the objective of
+    // singleton-cluster clustering of H.
     if (new_objective <= max_objective) {
       // Number of iterations used must be decremented for multi-level
       // refinement, so that refinement does not occur on a level with no

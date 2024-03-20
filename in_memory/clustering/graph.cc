@@ -41,6 +41,9 @@ namespace in_memory {
 
 using NodeId = InMemoryClusterer::NodeId;
 
+static constexpr double kDefaultNodeWeight = 1.0;
+static constexpr int32_t kDefaultNodePartId = 0;
+
 absl::Status MultipleGraphs::PrepareImport(int64_t num_nodes) {
   for (InMemoryClusterer::Graph* graph : graphs_) {
     RETURN_IF_ERROR(graph->PrepareImport(num_nodes));
@@ -66,13 +69,17 @@ absl::Status SimpleDirectedGraph::PrepareImport(int64_t num_nodes) {
   lock_free_import_ = absl::GetFlag(FLAGS_lock_free_import);
   if (lock_free_import_) {
     adjacency_lists_.resize(num_nodes);
-    node_weights_.resize(num_nodes, 1.0);
+    node_weights_.resize(num_nodes, kDefaultNodeWeight);
+    node_parts_.resize(num_nodes, kDefaultNodePartId);
   }
   return absl::OkStatus();
 }
 
 absl::Status SimpleDirectedGraph::ImportHelper(AdjacencyList adjacency_list) {
   SetNodeWeight(adjacency_list.id, adjacency_list.weight);
+  if (adjacency_list.part.has_value()) {
+    SetNodePart(adjacency_list.id, *adjacency_list.part);
+  }
   for (auto [neighbor_id, weight] : adjacency_list.outgoing_edges) {
     RETURN_IF_ERROR(AddEdge(adjacency_list.id, neighbor_id, weight));
   }
@@ -93,6 +100,10 @@ absl::Status SimpleDirectedGraph::FinishImport() {
     // We are done with importing. Disable the lock-free optimization.
     lock_free_import_ = false;
   }
+
+  MaybeClearNodeWeights();
+  MaybeClearNodeParts();
+
   return absl::OkStatus();
 }
 
@@ -136,7 +147,19 @@ std::optional<double> SimpleDirectedGraph::EdgeWeight(NodeId from_node,
 
 double SimpleDirectedGraph::NodeWeight(NodeId id) const {
   ABSL_CHECK_OK(CheckNodeId(id));
-  return id < node_weights_.size() ? node_weights_[id] : 1.0;
+  return id < node_weights_.size() ? node_weights_[id] : kDefaultNodeWeight;
+}
+
+int32_t SimpleDirectedGraph::NodePart(NodeId id) const {
+  ABSL_CHECK_OK(CheckNodeId(id));
+  return id < node_parts_.size() ? node_parts_[id] : kDefaultNodePartId;
+}
+
+bool SimpleDirectedGraph::IsUnipartite() const {
+  for (const int32_t node_part : node_parts_) {
+    if (node_part != kDefaultNodePartId) return false;
+  }
+  return true;
 }
 
 double SimpleDirectedGraph::WeightedOutDegree(NodeId id) const {
@@ -158,10 +181,26 @@ void SimpleDirectedGraph::SetNodeWeight(NodeId id, double weight) {
   } else {
     EnsureSize(id + 1);
     if (id >= node_weights_.size()) {
-      node_weights_.resize(id + 1, 1.0);
+      node_weights_.resize(id + 1, kDefaultNodeWeight);
     }
   }
   node_weights_[id] = weight;
+}
+
+void SimpleDirectedGraph::SetNodePart(NodeId id, int32_t part) {
+  ABSL_CHECK_OK(CheckNodeId(id));
+  if (lock_free_import_) {
+    // In the lock-free import logic, adjacency_lists_ and node_parts_ are
+    // preallocated to the same size. Thus checking against the size of
+    // adjacency_lists_ is sufficient.
+    ABSL_CHECK_LT(id, adjacency_lists_.size());
+  } else {
+    EnsureSize(id + 1);
+    if (id >= node_parts_.size()) {
+      node_parts_.resize(id + 1, kDefaultNodePartId);
+    }
+  }
+  node_parts_[id] = part;
 }
 
 double* SimpleDirectedGraph::MutableEdgeWeight(NodeId from_node, NodeId to_node,
@@ -197,6 +236,33 @@ absl::Status SimpleDirectedGraph::ClearNeighbors(NodeId id) {
   // Free the capacity of adjacency list.
   absl::flat_hash_map<NodeId, double>().swap(adjacency_lists_[id]);
   return absl::OkStatus();
+}
+
+// Clears v if all values in v equal to default_value.
+// Returns true if v is cleared.
+template <typename T>
+bool MaybeClearVector(std::vector<T>& v, T default_value) {
+  bool should_clear = true;
+  for (const auto i : v) {
+    if (i != default_value) {
+      should_clear = false;
+      break;
+    }
+  }
+
+  if (should_clear) {
+    std::vector<T>().swap(v);
+  }
+
+  return should_clear;
+}
+
+bool SimpleDirectedGraph::MaybeClearNodeWeights() {
+  return MaybeClearVector(node_weights_, kDefaultNodeWeight);
+}
+
+bool SimpleDirectedGraph::MaybeClearNodeParts() {
+  return MaybeClearVector(node_parts_, kDefaultNodePartId);
 }
 
 absl::Status SimpleUndirectedGraph::AddEdge(NodeId from_node, NodeId to_node,
@@ -268,6 +334,10 @@ absl::Status CopyGraph(const SimpleDirectedGraph& in_graph,
     InMemoryClusterer::AdjacencyList adjacency_list;
     adjacency_list.id = id;
     adjacency_list.weight = in_graph.NodeWeight(id);
+    const auto node_part = in_graph.NodePart(id);
+    if (node_part != kDefaultNodePartId) {
+      adjacency_list.part = in_graph.NodePart(id);
+    }
     const auto& neighbors = in_graph.Neighbors(id);
     adjacency_list.outgoing_edges.reserve(neighbors.size());
     for (auto [neighbor_id, weight] : neighbors) {

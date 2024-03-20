@@ -132,6 +132,30 @@ message AffinityClustererConfig {
     // below the min_cluster_size throughout a compression round. This will tend
     // the result towards clusters near min_cluster_size.
     optional bool prefer_min_cluster_size = 3;
+
+    // Desired target total weight of nodes in a cluster. Note that by default
+    // each node has a weight of 1.
+    // NOTE: This provides (1) a soft constraint for minimum size and (2) a hard
+    // constraint for maximum size.
+    // For minimimum size constraint: Returned clusters may be smaller than the
+    // desired minimum if:
+    // - the graph contains connected components with total weight less than the
+    // minimum.
+    // - the configuration prevents sufficient merging (due to not enough
+    //   compression rounds, too high of an edge weight threshold).
+    // For maximum size constraint: Returned clusters can have weight at most 2
+    // * target_cluster_size * compression_rounds + maximum_node_weight. In
+    // particular, if an affinity tree in a round has total weight at least
+    // target_cluster_size, then the affinity tree will be partitioned into
+    // clusters where each cluster has total weight at least target_cluster_size
+    // such that each cluster
+    //  - has total weight at most 4 * target_cluster_size OR
+    //  - has a total weight at most 2 * target_cluster_size after removing the
+    // node in the current affinity tree with the largest weight.
+    // Note: target_cluster_size is used to handle affinity trees after all
+    // max_cluster_size, min_cluster_size, prefer_min_cluster_size and
+    // merge_allowance_config are processed.
+    optional double target_cluster_size = 4;
   }
 
   optional SizeConstraint size_constraint = 9;

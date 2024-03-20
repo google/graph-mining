@@ -15,15 +15,18 @@
 #ifndef THIRD_PARTY_GRAPH_MINING_IN_MEMORY_CLUSTERING_AFFINITY_PARALLEL_AFFINITY_INTERNAL_H_
 #define THIRD_PARTY_GRAPH_MINING_IN_MEMORY_CLUSTERING_AFFINITY_PARALLEL_AFFINITY_INTERNAL_H_
 
-#include <array>
-#include <tuple>
+#include <functional>
+#include <optional>
+#include <vector>
 
 #include "absl/status/statusor.h"
+#include "absl/types/span.h"
+#include "gbbs/graph.h"
+#include "gbbs/vertex.h"
 #include "parlay/sequence.h"
 #include "gbbs/macros.h"
 #include "in_memory/clustering/config.pb.h"
 #include "in_memory/clustering/in_memory_clusterer.h"
-#include "in_memory/connected_components/asynchronous_union_find.h"
 #include "in_memory/parallel/parallel_graph_utils.h"
 
 namespace graph_mining::in_memory {
@@ -75,7 +78,8 @@ parlay::sequence<gbbs::uintE> EnforceMaxClusterSize(
 // Performs a single round of nearest-neighbor clustering. First, each node
 // marks the highest weight incident edge. Then, we compute connected components
 // given by the selected edges. For a graph of size n, returns a sequence of
-// size n, where 0 <= result[i] < n gives the cluster id of node i. Edges of
+// size n, where 0 <= result[i] < n gives the cluster id of node i. The returned
+// cluster ids are consecutive integers in range [0, num_clusters). Edges of
 // weight smaller than the threshold are ignored. Ties in edge weights are
 // broken using edge endpoint ids.
 //

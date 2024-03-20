@@ -39,13 +39,18 @@ std::vector<std::size_t> GetOffsets(
     const std::function<gbbs::uintE(std::size_t)>& get_key,
     std::size_t num_keys, std::size_t n);
 
-// Using parallel sorting, compute inter cluster edges given a set of
-// cluster_ids that form the vertices of the new graph. Uses scale_func to first
-// scale edge weights, and then uses aggregate_func to combine multiple edges on
-// the same cluster ids. Note that aggregate_func must be commutative and
-// associative, with 0 as its identity. Returns sorted edges and offsets array
-// in edges and offsets respectively. The number of compressed vertices should
-// be 1 + the maximum cluster id in cluster_ids.
+// Remap the endpoints of edges using the provided cluster_ids. Despite the
+// name, the function also returns intra-cluster edges, as self-loops (unless
+// they are filtered out by is_valid_func). The input graph should be
+// undirected: the weight of a self-loop is obtained from all self-loops plus
+// *one* of the two directed edges that represent an undirected edge.
+//
+// Uses scale_func to first scale edge weights, and then uses aggregate_func to
+// combine multiple edges on the same cluster ids. Note that aggregate_func must
+// be commutative and associative, with 0 as its identity. Returns sorted edges
+// and offsets array in edges and offsets respectively. The number of compressed
+// vertices should be 1 + the maximum cluster id in cluster_ids. The
+// implementation uses parallel sorting.
 OffsetsEdges ComputeInterClusterEdgesSort(
     gbbs::symmetric_ptr_graph<gbbs::symmetric_vertex, float>& original_graph,
     const std::vector<gbbs::uintE>& cluster_ids,
@@ -110,4 +115,3 @@ struct GraphWithWeights {
 }  // namespace graph_mining::in_memory
 
 #endif  // THIRD_PARTY_GRAPH_MINING_IN_MEMORY_PARALLEL_PARALLEL_GRAPH_UTILS_H_
-

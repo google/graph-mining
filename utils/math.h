@@ -16,6 +16,10 @@
 #define THIRD_PARTY_GRAPH_MINING_UTILS_MATH_H_
 
 #include <algorithm>
+#include <cmath>
+#include <type_traits>
+
+#include "absl/log/absl_check.h"
 #include "absl/numeric/bits.h"
 
 namespace graph_mining {
@@ -25,6 +29,11 @@ namespace graph_mining {
 template <typename T>
 bool WithinMarginOrFraction(const T x, const T y, const T margin,
                             const T fraction) {
+  static_assert(std::is_floating_point_v<T>,
+                "WithinMarginOrFraction only supports floating point types.");
+  if (std::isinf(x) || std::isinf(y)) {
+    return false;
+  }
   T diff = std::abs(x - y);
   return diff <= margin ||
          diff <= fraction * std::max(std::abs(x), std::abs(y));
@@ -33,15 +42,15 @@ bool WithinMarginOrFraction(const T x, const T y, const T margin,
 // Checks if two given floating point numbers are almost equal.
 template <typename T>
 static bool AlmostEquals(const T x, const T y) {
+  if (x == y)
+    return true;  // Covers +inf and -inf, and is a shortcut for finite values.
   static constexpr T margin = 32 * std::numeric_limits<T>::epsilon();
   static constexpr T fraction = 32 * std::numeric_limits<T>::epsilon();
   return WithinMarginOrFraction(x, y, margin, fraction);
 }
 
 // Returns floor(log2(x)) for positive integer n.  Returns -1 iff n == 0.
-inline int Log2Floor(uint32_t n) {
-  return absl::bit_width(n) - 1;
-}
+inline int Log2Floor(uint32_t n) { return absl::bit_width(n) - 1; }
 
 // Returns 1 + 2 + 3 + ... + (n-1)
 int64_t UpperTriangleSize(int n);

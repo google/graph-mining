@@ -31,6 +31,7 @@ cc_library(
         "//in_memory/parallel:parallel_graph_utils",
         "//in_memory/parallel:scheduler",
         "@com_google_absl//absl/log:absl_log",
+        "@com_google_absl//absl/status",
         "@com_google_absl//absl/status:statusor",
     ],
     alwayslink = 1,
@@ -62,6 +63,7 @@ cc_library(
         "@com_github_gbbs//gbbs:bridge",
         "@com_github_gbbs//gbbs:graph",
         "@com_github_gbbs//gbbs:macros",
+        "@com_google_absl//absl/flags:flag",
         "@com_google_absl//absl/log:absl_check",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/status:statusor",
@@ -72,6 +74,11 @@ cc_library(
 
 proto_library(
     name = "correlation_proto",
+    srcs = ["correlation.proto"],
+)
+
+py_proto_library(
+    name = "correlation_py_pb2",
     srcs = ["correlation.proto"],
 )
 

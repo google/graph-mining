@@ -34,6 +34,17 @@ class ThreadSafeStatus {
     status_.Update(status);
   }
 
+  // Updates the internal status if the input is not OK. Returns true if the
+  // internal status is updated. Returns false otherwise.
+  bool MaybeUpdateStatus(const absl::Status& status) {
+    if (status.ok()) {
+      return false;
+    } else {
+      Update(status);
+      return true;
+    }
+  }
+
  private:
   mutable absl::Mutex mutex_;
   absl::Status status_ ABSL_GUARDED_BY(mutex_);

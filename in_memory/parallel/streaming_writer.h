@@ -40,12 +40,12 @@ class StreamingWriter {
     block_size_ =
         block_size == 0 ? std::numeric_limits<int64_t>::max() : block_size;
     ABSL_CHECK_GT(block_size_, 0);
-    for (auto& buffer : unfinished_buffer_.GetAll()) {
+    for (int i = 0; i < unfinished_buffer_.NumWorkers(); ++i) {
       // Note that we reserve `block_size` instead of `block_size_`. This is
       // because if the caller explicitly specifies `block_size`, then it is
       // reasonable to believe that the caller has knowledge on how large the
       // per-thread buffer needs to be and that it should fit in memory.
-      buffer.reserve(block_size);
+      unfinished_buffer_.Get(i).reserve(block_size);
     }
   }
 
@@ -123,7 +123,8 @@ void StreamingWriter<T>::AddBuffer(std::vector<T> buffer) {
 
 template <typename T>
 std::vector<std::vector<T>> StreamingWriter<T>::Build() {
-  for (auto& unfinished_buffer : unfinished_buffer_.GetAll()) {
+  for (int i = 0; i < unfinished_buffer_.NumWorkers(); ++i) {
+    auto& unfinished_buffer = unfinished_buffer_.Get(i);
     if (!unfinished_buffer.empty())
       finished_buffers_.push_back(std::move(unfinished_buffer));
   }

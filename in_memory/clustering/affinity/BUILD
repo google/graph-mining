@@ -14,10 +14,59 @@
 
 load("@com_google_protobuf//:protobuf.bzl", "py_proto_library")
 load("@rules_proto//proto:defs.bzl", "proto_library")
+load("//utils:build_defs.bzl", "graph_mining_cc_test")
 
-package(default_visibility = ["//visibility:public"])
+package(
+    default_visibility = ["//visibility:public"],
+)
 
 licenses(["notice"])
+
+graph_mining_cc_test(
+    name = "weight_threshold_test",
+    srcs = ["weight_threshold_test.cc"],
+    deps = [
+        ":affinity_cc_proto",
+        ":weight_threshold",
+        "//in_memory:status_macros",
+        "//utils/parse_proto:parse_text_proto",
+        "@com_google_googletest//:gtest_main",
+    ],
+)
+
+graph_mining_cc_test(
+    name = "affinity_test",
+    srcs = ["affinity_test.cc"],
+    deps = [
+        ":affinity",
+        "@com_google_googletest//:gtest_main",
+        "@com_google_absl//absl/algorithm:container",
+        "@com_google_absl//absl/random",
+        "@com_google_absl//absl/strings",
+        "//in_memory/clustering:clustering_utils",
+        "//in_memory/clustering:config_cc_proto",
+        "//in_memory/clustering:graph",
+        "//in_memory/clustering:in_memory_clusterer",
+        "//utils/parse_proto:parse_text_proto",
+               "@farmhash_archive//:farmhash",
+    ],
+)
+
+graph_mining_cc_test(
+    name = "affinity_internal_test",
+    srcs = ["affinity_internal_test.cc"],
+    deps = [
+        ":affinity_internal",
+        "@com_google_googletest//:gtest_main",
+        "@com_google_absl//absl/strings",
+        "@com_google_absl//absl/strings:string_view",
+        "//in_memory/clustering:graph",
+        "//in_memory/clustering:in_memory_clusterer",
+        "//in_memory:status_macros",
+        "//utils/parse_proto:parse_text_proto",
+               "@farmhash_archive//:farmhash",
+    ],
+)
 
 cc_library(
     name = "weight_threshold",
@@ -115,6 +164,24 @@ cc_library(
     alwayslink = 1,
 )
 
+graph_mining_cc_test(
+    name = "parallel_affinity_test",
+    size = "small",
+    timeout = "moderate",
+    srcs = ["parallel_affinity_test.cc"],
+    deps = [
+        ":parallel_affinity",
+        "//in_memory:status_macros",
+        "//in_memory/clustering:clustering_utils",
+        "//in_memory/clustering:config_cc_proto",
+        "//in_memory/clustering:graph",
+        "//in_memory/clustering:in_memory_clusterer",
+        "//in_memory/clustering:types",
+        "//utils/parse_proto:parse_text_proto",
+        "@com_google_googletest//:gtest_main",
+    ],
+)
+
 cc_library(
     name = "parallel_affinity_internal",
     srcs = ["parallel_affinity_internal.cc"],
@@ -125,11 +192,21 @@ cc_library(
         "//in_memory/connected_components:asynchronous_union_find",
         "//in_memory/parallel:parallel_graph_utils",
         "//in_memory/parallel:parallel_sequence_ops",
+        "//in_memory/tree_partitioner:min_size_tree_partitioning",
+        "@com_github_gbbs//gbbs:bridge",
+        "@com_github_gbbs//gbbs:graph",
         "@com_github_gbbs//gbbs:macros",
+        "@com_github_gbbs//gbbs:vertex",
+        "@com_google_absl//absl/container:flat_hash_map",
         "@com_google_absl//absl/log:absl_check",
         "@com_google_absl//absl/log:absl_log",
         "@com_google_absl//absl/status:statusor",
+        "@com_google_absl//absl/types:span",
+        "@parlaylib//parlay:monoid",
+        "@parlaylib//parlay:parallel",
+        "@parlaylib//parlay:primitives",
         "@parlaylib//parlay:sequence",
+        "@parlaylib//parlay:slice",
     ],
 )
 
@@ -141,5 +218,44 @@ cc_library(
         ":dynamic_weight_threshold_cc_proto",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/status:statusor",
+    ],
+)
+
+graph_mining_cc_test(
+    name = "parallel_affinity_internal_test",
+    size = "small",
+    srcs = ["parallel_affinity_internal_test.cc"],
+    deps = [
+        ":affinity_cc_proto",
+        ":parallel_affinity_internal",
+        "//in_memory:status_macros",
+        "//in_memory/clustering:clustering_utils",
+        "//in_memory/clustering:gbbs_graph",
+        "//in_memory/clustering:gbbs_graph_test_utils",
+        "//in_memory/clustering:graph",
+        "//in_memory/clustering:in_memory_clusterer",
+        "//in_memory/connected_components:asynchronous_union_find",
+        "//in_memory/parallel:scheduler",
+        "//utils/parse_proto:parse_text_proto",
+        "@com_github_gbbs//gbbs:graph",
+        "@com_github_gbbs//gbbs:macros",
+        "@com_github_gbbs//gbbs:vertex",
+        "@com_google_absl//absl/strings:string_view",
+        "@com_google_googletest//:gtest_main",
+        "@parlaylib//parlay:sequence",
+        "@parlaylib//parlay/internal:group_by",
+    ],
+)
+
+graph_mining_cc_test(
+    name = "dynamic_weight_threshold_test",
+    srcs = ["dynamic_weight_threshold_test.cc"],
+    deps = [
+        ":dynamic_weight_threshold",
+        ":dynamic_weight_threshold_cc_proto",
+        "//in_memory:status_macros",
+        "//utils/parse_proto:parse_text_proto",
+        "@com_google_absl//absl/status",
+        "@com_google_googletest//:gtest_main",
     ],
 )

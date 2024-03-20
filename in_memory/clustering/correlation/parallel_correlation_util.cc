@@ -23,11 +23,11 @@
 #include <utility>
 #include <vector>
 
+#include "absl/flags/flag.h"
 #include "absl/log/absl_check.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "absl/types/optional.h"
-#include "parlay/parallel.h"
 #include "gbbs/bridge.h"
 #include "gbbs/macros.h"
 #include "in_memory/clustering/config.pb.h"
@@ -35,6 +35,10 @@
 #include "in_memory/clustering/in_memory_clusterer.h"
 #include "in_memory/parallel/parallel_graph_utils.h"
 #include "in_memory/parallel/parallel_sequence_ops.h"
+#include "parlay/parallel.h"
+
+ABSL_FLAG(bool, enable_cc_self_loop_bug_fix, true,
+          "Should always be set true to produce the correct clustering.");
 
 namespace graph_mining::in_memory {
 
@@ -136,8 +140,12 @@ double ClusteringHelper::ComputeObjective(
 
     auto intra_cluster_sum_map_f = [&](gbbs::uintE u, gbbs::uintE v,
                                        float weight) -> double {
-      // This assumes that the graph is undirected, and self-loops are counted
-      // as half of the weight.
+      // Since the graph is undirected, each undirected edge is represented by
+      // two directed edges, with the exception of self-loops, which are
+      // represented as one edge. Hence, the weight of each intra-cluster edge
+      // must be divided by 2, unless it's a self-loop.
+      if (absl::GetFlag(FLAGS_enable_cc_self_loop_bug_fix) && u == v)
+        return weight;
       if (cluster_id_i == cluster_ids_[v])
         return (weight - config.edge_weight_offset()) / 2;
       return 0;
@@ -151,6 +159,30 @@ double ClusteringHelper::ComputeObjective(
   double resolution_seq_result = 0;
   if (clusterer_config_.correlation_clusterer_config()
           .use_bipartite_objective()) {
+    // In the bipartite mode, we iterate over the node id space and interpret
+    // each node id as a cluster id. The following implementation is equivalent
+    // to the uni-partite implementation interpreting the node ids as node ids
+    //
+    // ====================
+    // Equivalent implementation interpreting the node ids as node ids
+    // ====================
+    // resolution_seq_result = 0
+    // For each node id i in [0, graph.n)
+    //   resolution_seq_result += node_weights_[i] *
+    //     partitioned_cluster_weights_[cluster_ids_[i]][abs(1-node_parts_[i])]
+    // resolution_seq_result /= 2
+    // ====================
+    //
+    // The per-node-id and per-cluster-id computation is equivalent because, for
+    // a cluster with m nodes in Part 0 (with node weights a_i (i=0..m-1)) and n
+    // nodes in Part 1 (with node weights b_j (j=0..n-1)), the per-node-id
+    // approach computes the penalty as
+    //
+    // Sum_{i=0..m-1} Sum_{j=0..n-1} a_i * b_j
+    //
+    // whereas the per-cluster-id approach computes the penalty as
+    //
+    // (Sum_{i=0..m-1} a_i) * (Sum_{j=0..n-1} b_j)
     auto resolution_seq =
         parlay::delayed_seq<double>(graph.n, [&](std::size_t i) {
           return partitioned_cluster_weights_[i][0] *
@@ -803,11 +835,11 @@ BipartiteGraphCompressionMetadata PrepareBipartiteGraphCompression(
   // `cluster_id_and_part_to_new_node_ids` is resized to match the number of
   // nodes in the current graph and reset to the default value.
   cluster_id_and_part_to_new_node_ids.resize(num_original_nodes);
-  parlay::parallel_for(
-      0, num_original_nodes,
-      [&cluster_id_and_part_to_new_node_ids](std::size_t i) {
-        cluster_id_and_part_to_new_node_ids[i] = {UINT_E_MAX, UINT_E_MAX};
-      });
+  parlay::parallel_for(0, num_original_nodes,
+                       [&cluster_id_and_part_to_new_node_ids](std::size_t i) {
+                         cluster_id_and_part_to_new_node_ids[i] = {UINT_E_MAX,
+                                                                   UINT_E_MAX};
+                       });
 
   // Step 1: Obtain new node ids for nodes in the original graph. Store
   // result in `node_id_to_new_node_ids`.

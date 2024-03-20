@@ -92,7 +92,7 @@ absl::StatusOr<InMemoryClusterer::Clustering> SliceEmbedding(
   std::unique_ptr<LinearEmbedder> embedder = CreateEmbedder(line_config);
   ASSIGN_OR_RETURN(std::vector<gbbs::uintE> embedding,
                    embedder->EmbedGraph(graph));
-  ABSL_LOG(INFO) << "Done with (node-unweighted) embedding";
+  ABSL_VLOG(1) << "Done with (node-unweighted) embedding";
   auto cluster_size_prefix_sum =
       ComputeClusterSizePrefixSum(embedding, num_clusters);
   InMemoryClusterer::Clustering clustering(num_clusters);
@@ -104,7 +104,7 @@ absl::StatusOr<InMemoryClusterer::Clustering> SliceEmbedding(
     std::copy(embedding.cbegin() + start, embedding.cbegin() + end,
               std::back_inserter(cluster));
   });
-  ABSL_LOG(INFO) << "Done with (node-unweighted) initial slicing";
+  ABSL_VLOG(1) << "Done with (node-unweighted) initial slicing";
   return clustering;
 }
 
@@ -129,7 +129,7 @@ absl::StatusOr<InMemoryClusterer::Clustering> SliceEmbeddingWeighted(
   std::unique_ptr<LinearEmbedder> embedder = CreateEmbedder(line_config);
   std::vector<std::pair<gbbs::uintE, double>> embedding;
   ASSIGN_OR_RETURN(embedding, embedder->EmbedGraphWeighted(graph));
-  ABSL_LOG(INFO) << "Done with (node-weighted) embedding";
+  ABSL_VLOG(1) << "Done with (node-weighted) embedding";
   auto clustering_seq =
       parlay::delayed_tabulate<std::pair<gbbs::uintE, gbbs::uintE>>(
           embedding.size(), [&](size_t i) {
@@ -144,7 +144,7 @@ absl::StatusOr<InMemoryClusterer::Clustering> SliceEmbeddingWeighted(
     clustering[i] =
         std::vector<InMemoryClusterer::NodeId>(part.begin(), part.end());
   });
-  ABSL_LOG(INFO) << "Done with (node-weighted) initial slicing";
+  ABSL_VLOG(1) << "Done with (node-weighted) initial slicing";
   return clustering;
 }
 
@@ -215,7 +215,7 @@ absl::StatusOr<InMemoryClusterer::Clustering> ParallelLinePartitioner::Cluster(
                    ComputeInitialClusters(graph_, line_config));
   InMemoryClusterer::Clustering improved_clusters =
       ImproveClusters(graph_, initial_clusters, line_config);
-  ABSL_LOG(INFO) << "Done with post processing to improve clusters";
+  ABSL_VLOG(1) << "Done with post processing to improve clusters";
   if (!line_config.use_node_weights()) {
     graph_.Graph()->vertex_weights = node_weights;
   }

@@ -292,13 +292,13 @@ Dendrogram::HierarchicalFlattenClustering(
 
   if (similarity_thresholds.empty()) {
     return absl::InvalidArgumentError(
-        absl::StrCat("similarity_thresholds must be non-empty."));
+        "similarity_thresholds must be non-empty.");
   }
 
   // Enforce that the thresholds are in non-ascending order.
   if (!absl::c_is_sorted(similarity_thresholds, std::greater<double>())) {
     return absl::InvalidArgumentError(
-        absl::StrCat("similarity_thresholds must be in descending order."));
+        "similarity_thresholds must be in descending order.");
   }
 
   SequentialUnionFind<NodeId> cc(nodes_.size());

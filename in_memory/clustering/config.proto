@@ -82,3 +82,11 @@ message ClustererConfig {
     ParHacConfig parhac_clusterer_config = 15;
   }
 }
+
+// Specification of an in-memory clustering step, consisting of the clusterer
+// name and its config.
+message ClusteringSpec {
+  optional string clusterer_name = 1;
+
+  optional ClustererConfig clusterer_config = 2;
+}

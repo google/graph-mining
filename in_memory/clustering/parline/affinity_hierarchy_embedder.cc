@@ -46,8 +46,8 @@ namespace {
 using WeightedUndirectedGraph =
     gbbs::symmetric_ptr_graph<gbbs::symmetric_vertex, float>;
 
-const int kMaxAffinityLevels = 20;
-const int kDefaultMaxClusterSize = 10;
+const int kMaxAffinityLevels = 40;
+const int kDefaultTargetClusterSize = 2;
 
 // Extends the path {C_0, C_1, ..., C_k} at each entry to
 // {C_0, C_1, ..., C_k, C_{k+1}} where next_level_cluster_ids[C_k] = C_{k+1}.
@@ -55,10 +55,12 @@ const int kDefaultMaxClusterSize = 10;
 // If a node is isolated then its path is not extended.
 void ExtendHierarchyPaths(
     const std::vector<gbbs::uintE>& next_level_cluster_ids,
-    const WeightedUndirectedGraph& graph,
+    const WeightedUndirectedGraph& graph, int level,
     std::vector<std::vector<gbbs::uintE>>* hierarchy_paths) {
   parlay::parallel_for(0, hierarchy_paths->size(), [&](std::size_t i) {
     auto& path = hierarchy_paths->at(i);
+    // Check if top was already reached previously.
+    if (path.size() < level) return;
     auto node_id = path.back();
     // Only extend the path for non-isolated nodes.
     if (graph.vertices[node_id].out_degree() > 0) {
@@ -76,8 +78,8 @@ AffinityClustererConfig AffinityConfigWithDefaults(
     affinity_config.set_edge_aggregation_function(AffinityClustererConfig::SUM);
   }
   if (!affinity_config.has_size_constraint()) {
-    affinity_config.mutable_size_constraint()->set_max_cluster_size(
-        kDefaultMaxClusterSize);
+    affinity_config.mutable_size_constraint()->set_target_cluster_size(
+        kDefaultTargetClusterSize);
   }
   return affinity_config;
 }
@@ -100,7 +102,6 @@ AffinityHierarchyEmbedder::ComputeAffinityHierarchyPaths(
     hierarchy_paths[i] = {static_cast<gbbs::uintE>(i)};
   });
   std::unique_ptr<WeightedUndirectedGraph> compressed_graph;
-  std::vector<double> node_weights;
 
   // We use empty node weights vector because we want the default node weight of
   // 1 for nodes since we are only interested in the "number of nodes" as the
@@ -129,15 +130,14 @@ AffinityHierarchyEmbedder::ComputeAffinityHierarchyPaths(
                                /*weight_threshold=*/0.0,
                                std::make_optional(size_constraint_config)));
 
-    ExtendHierarchyPaths(compressed_cluster_ids, *current_graph,
+    ExtendHierarchyPaths(compressed_cluster_ids, *current_graph, level,
                          &hierarchy_paths);
 
     GraphWithWeights new_compressed_graph;
     ASSIGN_OR_RETURN(new_compressed_graph,
-                     CompressGraph(*current_graph, node_weights,
+                     CompressGraph(*current_graph, {},
                                    compressed_cluster_ids, affinity_config_));
     compressed_graph.swap(new_compressed_graph.graph);
-    node_weights = new_compressed_graph.node_weights;
 
     // Top is reached if all the nodes in the compressed_graph are isolated.
     parlay::sequence<bool> isolated_nodes =

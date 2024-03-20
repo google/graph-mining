@@ -76,8 +76,9 @@ absl::Status UndirectedConverterGraph::FinishImport() {
       config_.asymmetric_edge_treatment() !=
           graph_mining::ConvertToUndirectedConfig::
               AsymmetricEdgeTreatment_MIN) {
-    return absl::InvalidArgumentError(absl::StrCat(
-        "Unsupported ConvertToUndirectedConfig: ", config_.DebugString()));
+    return absl::InvalidArgumentError(
+        absl::StrCat("Unsupported ConvertToUndirectedConfig: ",
+                                ""));
   }
 
   // Sort edges before nodes. This is because the `nodes_` array at this stage
@@ -265,7 +266,7 @@ absl::Status UndirectedConverterGraph::Sparsify() {
     return absl::InvalidArgumentError(
         absl::StrCat("Invalid sparification configuration: either soft or hard "
                      "degree threshold must be specified: ",
-                     config_.DebugString()));
+                                ""));
   }
 
   if ((config_.sparsify().has_soft_degree_threshold() &&
@@ -275,7 +276,7 @@ absl::Status UndirectedConverterGraph::Sparsify() {
     return absl::InvalidArgumentError(
         absl::StrCat("Invalid sparification configuration: degree threshold "
                      "must be positive: ",
-                     config_.DebugString()));
+                                ""));
   }
 
   if (config_.sparsify().keep_lowest_weight_edges()) {

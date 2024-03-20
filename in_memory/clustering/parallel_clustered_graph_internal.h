@@ -16,6 +16,9 @@
 #define THIRD_PARTY_GRAPH_MINING_IN_MEMORY_CLUSTERING_PARALLEL_CLUSTERED_GRAPH_INTERNAL_H_
 
 #include <algorithm>
+#include <cstddef>
+#include <optional>
+#include <utility>
 
 #include "absl/log/absl_check.h"
 #include "absl/types/span.h"
@@ -458,6 +461,17 @@ class SimpleConcurrentTable {
     }
   }
 
+  // If `k` exists in key, return the value corresponding to `k`, otherwise
+  // return std::nullopt. Should not be used concurrently with other modifying
+  // operations.
+  std::optional<V> FindValue(K k) const {
+    const auto& index = FindIndex(k);
+    if (index.has_value()) {
+      return Value(table_[index.value()]);
+    }
+    return std::nullopt;
+  }
+
  private:
   inline size_t HashToRange(size_t h) const { return h & (Capacity() - 1); }
   inline size_t FirstIndex(K& k) const {
@@ -504,16 +518,26 @@ class SimpleConcurrentTable {
   // Returns a pointer to the table entry corresponding to the key k, or nullptr
   // if k does not exist in the table.
   T* Find(K k) {
+    const auto& index = FindIndex(k);
+    if (index.has_value()) {
+      return &table_[index.value()];
+    }
+    return nullptr;
+  }
+
+  // Returns an index to the table entry corresponding to the key k, or empty
+  // optional if k does not exist in the table.
+  std::optional<size_t> FindIndex(K k) const {
     size_t h = FirstIndex(k);
     while (true) {
       if (Key(table_[h]) == k) {
-        return &table_[h];
+        return h;
       } else if (Key(table_[h]) == kEmptyKey) {
-        return nullptr;
+        return std::nullopt;
       }
       h = IncrementIndex(h);
     }
-    return nullptr;
+    return std::nullopt;
   }
 
   static constexpr K kEmptyKey = std::numeric_limits<K>::max();

@@ -19,7 +19,6 @@
 #include <memory>
 #include <vector>
 
-#include "in_memory/parallel/scheduler.h"
 #include "absl/container/flat_hash_map.h"
 #include "absl/status/status.h"
 #include "absl/strings/str_cat.h"
@@ -29,6 +28,7 @@
 #include "gbbs/macros.h"
 #include "in_memory/clustering/in_memory_clusterer.h"
 #include "in_memory/clustering/types.h"
+#include "in_memory/parallel/scheduler.h"
 
 namespace graph_mining::in_memory {
 
@@ -70,6 +70,13 @@ class GbbsGraphBase : public InMemoryClusterer::Graph {
   // no such information exists or if all nodes have the default partition id.
   const std::vector<NodePartId>& GetNodeParts() const;
 
+  // Returns true if the input is a valid bipartite graph. Returns false
+  // otherwise.
+  //
+  // Note that for validation purposes, we consider only part ids 0 and 1 to be
+  // valid for a bipartite graph.
+  bool IsValidBipartiteGraph() const;
+
  protected:
   // Ensures that the graph has the given number of nodes, by adding new nodes
   // if necessary.
@@ -110,8 +117,9 @@ class GbbsGraphBase : public InMemoryClusterer::Graph {
 
 // Weighted undirected graph. WARNING: the caller must ensure an undirected
 // graph is loaded (see comment on GbbsGraphBase::Import).
-class GbbsGraph : public
-    GbbsGraphBase<gbbs::symmetric_ptr_graph<gbbs::symmetric_vertex, float>> {
+class GbbsGraph
+    : public GbbsGraphBase<
+          gbbs::symmetric_ptr_graph<gbbs::symmetric_vertex, float>> {
  public:
   // Reweights graph. Must be called after FinishImport.
   //
@@ -132,8 +140,8 @@ using DirectedUnweightedGbbsGraph = GbbsGraphBase<
     gbbs::asymmetric_ptr_graph<gbbs::asymmetric_vertex, gbbs::empty>>;
 
 // Weighted directed graph.
-using DirectedGbbsGraph = GbbsGraphBase<
-    gbbs::asymmetric_ptr_graph<gbbs::asymmetric_vertex, float>>;
+using DirectedGbbsGraph =
+    GbbsGraphBase<gbbs::asymmetric_ptr_graph<gbbs::asymmetric_vertex, float>>;
 
 // Unweighted undirected graph.
 using UnweightedGbbsGraph = GbbsGraphBase<
@@ -154,14 +162,12 @@ class UnweightedSortedNeighborGbbsGraph
 namespace internal {
 
 template <typename Weight>
-inline void SetId(gbbs::asymmetric_vertex<Weight>* vertex,
-                  NodeId id) {
+inline void SetId(gbbs::asymmetric_vertex<Weight>* vertex, NodeId id) {
   vertex->id = id;
 }
 
 template <typename Weight>
-inline void SetId(gbbs::symmetric_vertex<Weight>* vertex,
-                  NodeId id) {
+inline void SetId(gbbs::symmetric_vertex<Weight>* vertex, NodeId id) {
   vertex->id = id;
 }
 
@@ -342,9 +348,8 @@ absl::Status GbbsGraphBase<GraphType>::FinishImport() {
 
   // Set all node ids to the correct final value, because `EnsureSize` uses
   // temporary placeholder node ids.
-  parlay::parallel_for(0, nodes_.size(), [this](size_t i) {
-    nodes_[i].id = i;
-  });
+  parlay::parallel_for(0, nodes_.size(),
+                       [this](size_t i) { nodes_[i].id = i; });
 
   MaybeClearNodeWeights();
   MaybeClearNodeParts();
@@ -401,6 +406,35 @@ bool GbbsGraphBase<GraphType>::MaybeClearNodeParts() {
 template <typename GraphType>
 const std::vector<NodePartId>& GbbsGraphBase<GraphType>::GetNodeParts() const {
   return node_parts_;
+}
+
+template <typename GraphType>
+bool GbbsGraphBase<GraphType>::IsValidBipartiteGraph() const {
+  auto get_node_part = [&](gbbs::uintE i) {
+    return i < node_parts_.size() ? node_parts_[i] : 0;
+  };
+
+  auto valid_seq = parlay::delayed_seq<bool>(graph_->n, [&](gbbs::uintE i) {
+    auto node_part = get_node_part(i);
+    std::atomic<bool> valid = true;
+    if (node_part != 0 && node_part != 1) {
+      valid = false;
+    } else {
+      auto expected_neighbor_part = 1 - node_part;
+      auto validate_neighbor_parts =
+          [&](gbbs::uintE u, gbbs::uintE neighbor,
+              typename GraphType::weight_type weight) {
+            if (get_node_part(neighbor) != expected_neighbor_part) {
+              valid = false;
+            }
+          };
+      graph_->get_vertex(i).out_neighbors().map(validate_neighbor_parts);
+    }
+    return valid.load();
+  });
+  return parlay::reduce(
+      valid_seq,
+      parlay::make_monoid([](bool a, bool b) { return a && b; }, true));
 }
 
 }  // namespace graph_mining::in_memory

@@ -25,7 +25,13 @@ namespace graph_mining::in_memory {
 // The functions in this file provide an interface for dense connected
 // components using asynchronous union-find. The algorithm currently used is the
 // UF-Async algorithm from https://www.vldb.org/pvldb/vol14/p653-dhulipala.pdf,
-// based on the recent paper by Jayanti-Tarjan in PODC'16.
+// based on the recent paper by Jayanti-Tarjan in PODC'16. As required by
+// go/atomic-danger, this algorithm has been machine-verified by sjayanti@ using
+// Meta-configuration Tracking and by Jayanti, Jayanti, Yavuz, and Hernandez in
+// their POPL '24 paper. For the proof in TLAPS, see:
+// https://github.com/visveswara/machine-certified-linearizability/blob/master/UnionFindTracker.tla
+// and
+// https://github.com/uguryavuz/machine-certified-linearizability/blob/main/proofs/POPL24_JayantiTarjanUF.tla
 //
 // IntT is the integer type used to represent a parent-id. This type needs to be
 // large enough to store the number of nodes in the data structure.

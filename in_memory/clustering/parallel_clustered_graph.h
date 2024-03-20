@@ -16,7 +16,8 @@
 #define THIRD_PARTY_GRAPH_MINING_IN_MEMORY_CLUSTERING_PARALLEL_CLUSTERED_GRAPH_H_
 
 #include <functional>
-#include <vector>
+#include <limits>
+#include <optional>
 
 #include "absl/log/absl_check.h"
 #include "gbbs/macros.h"
@@ -130,6 +131,17 @@ class ClusteredNode {
   void Clear() { neighbors_.Clear(); }
 
   void SetClusterSize(uintE new_size) { num_in_cluster_ = new_size; }
+
+  // Return the similarity of the edge (this node, `neighbor_id`). Returns an
+  // empty optional if `neighbor_id` is not in the neighborhood.
+  std::optional<typename Weight::StoredWeightType> EdgeSimilarity(
+      uintE neighbor_id) const {
+    const auto similarity = neighbors_.FindValue(neighbor_id);
+    if (!similarity.has_value()) {
+      return std::nullopt;
+    }
+    return similarity.value().Similarity(ClusterSize());
+  }
 
  private:
   // The current node id of this cluster, updated upon a merge that keeps this

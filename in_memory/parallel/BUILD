@@ -24,7 +24,6 @@ cc_library(
     hdrs = ["parallel_sequence_ops.h"],
     deps = [
         "@com_github_gbbs//gbbs:bridge",
-        "@com_github_gbbs//gbbs:macros",
         "@com_google_absl//absl/types:span",
         "@parlaylib//parlay:primitives",
         "@parlaylib//parlay/internal:counting_sort",
@@ -85,6 +84,7 @@ cc_library(
     name = "per_worker",
     hdrs = ["per_worker.h"],
     deps = [
+        "@com_google_absl//absl/base:core_headers",
         "@com_google_absl//absl/log:absl_check",
         "@parlaylib//parlay:scheduler",
     ],

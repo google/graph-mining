@@ -104,15 +104,36 @@ class SimpleDirectedGraph : public InMemoryClusterer::Graph {
   // NumNodes()-1.
   double NodeWeight(NodeId id) const;
 
+  // Returns the part of the given node, or 0 if it has not been set.
+  // CHECK-fails if id is negative, but returns 0 if it is greater than
+  // NumNodes()-1.
+  int32_t NodePart(NodeId id) const;
+
+  // Returns true if all nodes in the graph are assigned to part 0 (default).
+  bool IsUnipartite() const;
+
   // Returns the total weight of all outgoing edges of a node.
   double WeightedOutDegree(NodeId id) const;
 
   // Sets the weight of the given node. Implicitly adds that node if necessary.
   virtual void SetNodeWeight(NodeId id, double weight);
 
+  // Sets the part of the given node. Implicitly adds that node if necessary.
+  virtual void SetNodePart(NodeId id, int32_t part);
+
   // Clears the adjacency list for a node and frees up the memory used by the
   // adjacency list.
   absl::Status ClearNeighbors(NodeId id);
+
+  // Returns the number of directed edges in the graph. Takes O(num nodes) time.
+  // Includes self edges if they exist.
+  std::size_t NumDirectedEdges() const {
+    std::size_t num_edges = 0;
+    for (const auto& adjacency_list : adjacency_lists_) {
+      num_edges += adjacency_list.size();
+    }
+    return num_edges;
+  }
 
  protected:
   // Ensures that the graph has the given number of nodes, by adding new nodes
@@ -136,9 +157,18 @@ class SimpleDirectedGraph : public InMemoryClusterer::Graph {
   // caller.
   absl::Status ImportHelper(AdjacencyList adjacency_list);
 
+  // Clears node_weights_ vector if all weights equal to the default weight.
+  // Returns true if node_weights_ is cleared.
+  bool MaybeClearNodeWeights();
+
+  // Clears node_parts_ vector if all part ids equal to the default id.
+  // Returns true if node_parts_ is cleared.
+  bool MaybeClearNodeParts();
+
   absl::Mutex mutex_;
   std::vector<absl::flat_hash_map<NodeId, double>> adjacency_lists_;
   std::vector<double> node_weights_;
+  std::vector<int32_t> node_parts_;
   bool lock_free_import_ = false;
 };
 
