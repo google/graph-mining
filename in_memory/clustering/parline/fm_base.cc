@@ -291,12 +291,8 @@ void CreateMoveSequenceFromHeaps(
 
   // For the priority queue that has leftover nodes, move or lock them all in
   // descending order by gain.
-  WeightedPriorityQueue& remaining_pq = left_pq;
-  WeightedPriorityQueue& empty_pq = right_pq;
-  if (!right_pq.Empty()) {
-    remaining_pq = right_pq;
-    empty_pq = left_pq;
-  }
+  WeightedPriorityQueue& remaining_pq = left_pq.Empty() ? right_pq : left_pq;
+  WeightedPriorityQueue& empty_pq = left_pq.Empty() ? left_pq : right_pq;
 
   MoveRemainingPqNodes(gbbs_graph, pq_node_index, max_cluster_weight,
                        remaining_pq, empty_pq, move_history);

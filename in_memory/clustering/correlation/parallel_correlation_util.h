@@ -212,6 +212,7 @@ class ClusteringHelper {
 
   // Initialize cluster_ids_ and cluster_sizes_ given an initial clustering.
   // If clustering is empty, initialize singleton clusters.
+  // num_nodes_ must be correctly set before calling this function.
   void SetClustering(const InMemoryClusterer::Clustering& clustering);
 };
 

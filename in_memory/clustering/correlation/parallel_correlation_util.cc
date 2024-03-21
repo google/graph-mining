@@ -55,6 +55,7 @@ void ClusteringHelper::ResetClustering(
   auto node_weights_size = node_weights.size();
   ABSL_CHECK(node_weights_size == num_nodes_ || node_weights_size == 0);
 
+  cluster_ids_.resize(num_nodes_);
   node_weights_.resize(node_weights.size());
   parlay::parallel_for(0, node_weights_size, [&](std::size_t i) {
     node_weights_[i] = node_weights[i];
@@ -62,11 +63,15 @@ void ClusteringHelper::ResetClustering(
 
   if (clusterer_config_.correlation_clusterer_config()
           .use_bipartite_objective()) {
+    partitioned_cluster_weights_.resize(num_nodes_);
+    cluster_sizes_.resize(num_nodes_);
     parlay::parallel_for(0, num_nodes_, [&](std::size_t i) {
       partitioned_cluster_weights_[i] = {0, 0};
       cluster_sizes_[i] = 0;
     });
   } else {
+    cluster_weights_.resize(num_nodes_);
+    cluster_sizes_.resize(num_nodes_);
     parlay::parallel_for(0, num_nodes_, [&](std::size_t i) {
       cluster_weights_[i] = 0;
       cluster_sizes_[i] = 0;
@@ -83,6 +88,10 @@ void ClusteringHelper::ResetClustering(
 
 void ClusteringHelper::SetClustering(
     const InMemoryClusterer::Clustering& clustering) {
+  cluster_sizes_.resize(num_nodes_);
+  cluster_ids_.resize(num_nodes_);
+  partitioned_cluster_weights_.resize(num_nodes_);
+  cluster_weights_.resize(num_nodes_);
   if (clustering.empty()) {
     // Keep the following if condition outside the parallel_for to avoid
     // checking this condition for each node.

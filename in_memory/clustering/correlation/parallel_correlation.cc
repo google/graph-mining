@@ -479,6 +479,7 @@ absl::Status ParallelCorrelationClusterer::RefineClusters(
 
   // Perform multi-level refinement
   if (use_refinement && iter > 0) {
+    cluster_ids = recursive_cluster_ids[iter];
     for (int i = iter - 1; i >= 0; --i) {
       symmetric_ptr_graph* current_graph =
           (i == 0) ? graph_.Graph() : recursive_graphs[i].get();
@@ -495,7 +496,7 @@ absl::Status ParallelCorrelationClusterer::RefineClusters(
       auto flattened_cluster_ids = graph_mining::in_memory::FlattenClustering(
           config.use_bipartite_objective() ? recursive_node_id_to_new_node_ids
                                            : recursive_cluster_ids[i],
-          recursive_cluster_ids[i + 1]);
+          cluster_ids);
 
       initial_helper->ResetClustering(flattened_cluster_ids,
                                       recursive_node_weights[i],
