@@ -154,7 +154,6 @@ cc_library(
         "//in_memory/connected_components:asynchronous_union_find",
         "@com_google_absl//absl/log:absl_check",
         "@com_google_absl//absl/status:statusor",
-        "@com_google_absl//absl/strings",
     ],
 )
 
@@ -166,7 +165,9 @@ cc_library(
         ":parallel_dendrogram",
         ":types",
         "@com_github_gbbs//gbbs:macros",
+        "@com_google_absl//absl/container:flat_hash_map",
         "@com_google_absl//absl/log:absl_check",
+        "@parlaylib//parlay:sequence",
     ],
 )
 
@@ -184,6 +185,11 @@ cc_library(
 
 proto_library(
     name = "undirected_converter_graph_proto",
+    srcs = ["undirected_converter_graph.proto"],
+)
+
+py_proto_library(
+    name = "undirected_converter_graph_py_pb2",
     srcs = ["undirected_converter_graph.proto"],
 )
 

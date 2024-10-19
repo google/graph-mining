@@ -16,6 +16,7 @@
 
 #include <array>
 #include <atomic>
+#include <cstddef>
 #include <functional>
 #include <memory>
 #include <optional>
@@ -33,12 +34,10 @@
 #include "in_memory/clustering/config.pb.h"
 #include "in_memory/clustering/correlation/correlation_util.h"
 #include "in_memory/clustering/in_memory_clusterer.h"
+#include "in_memory/clustering/types.h"
 #include "in_memory/parallel/parallel_graph_utils.h"
 #include "in_memory/parallel/parallel_sequence_ops.h"
 #include "parlay/parallel.h"
-
-ABSL_FLAG(bool, enable_cc_self_loop_bug_fix, true,
-          "Should always be set true to produce the correct clustering.");
 
 namespace graph_mining::in_memory {
 
@@ -153,7 +152,7 @@ double ClusteringHelper::ComputeObjective(
       // two directed edges, with the exception of self-loops, which are
       // represented as one edge. Hence, the weight of each intra-cluster edge
       // must be divided by 2, unless it's a self-loop.
-      if (absl::GetFlag(FLAGS_enable_cc_self_loop_bug_fix) && u == v)
+      if (u == v)
         return weight;
       if (cluster_id_i == cluster_ids_[v])
         return (weight - config.edge_weight_offset()) / 2;
@@ -917,8 +916,8 @@ std::vector<gbbs::uintE> FlattenBipartiteClustering(
     const std::vector<NodePartId>& node_parts,
     const std::vector<std::array<gbbs::uintE, 2>>&
         cluster_id_and_part_to_new_node_ids) {
-  auto cluster_size = cluster_ids.size();
-  ABSL_CHECK_EQ(cluster_ids.size(), cluster_size);
+  std::size_t cluster_size = cluster_ids.size();
+  ABSL_CHECK_EQ(node_parts.size(), cluster_size);
   std::vector<gbbs::uintE> new_cluster_ids(cluster_size);
   parlay::parallel_for(0, cluster_size, [&](std::size_t i) {
     new_cluster_ids[i] =

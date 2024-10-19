@@ -189,6 +189,7 @@ cc_library(
     deps = [
         "//in_memory/clustering:config_cc_proto",
         "//in_memory/clustering:in_memory_clusterer",
+        "//in_memory/clustering:types",
         "//in_memory/connected_components:asynchronous_union_find",
         "//in_memory/parallel:parallel_graph_utils",
         "//in_memory/parallel:parallel_sequence_ops",

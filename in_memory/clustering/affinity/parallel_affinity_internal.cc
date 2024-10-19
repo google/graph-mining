@@ -34,6 +34,7 @@
 #include "gbbs/macros.h"
 #include "gbbs/vertex.h"
 #include "in_memory/clustering/in_memory_clusterer.h"
+#include "in_memory/clustering/types.h"
 #include "in_memory/connected_components/asynchronous_union_find.h"
 #include "in_memory/parallel/parallel_graph_utils.h"
 #include "in_memory/parallel/parallel_sequence_ops.h"
@@ -534,8 +535,8 @@ parlay::sequence<gbbs::uintE> EnforceMaxClusterSize(
 
     // The following containers will be used only when use_target_cluster_size
     // is true.
-    absl::flat_hash_map<gbbs::uintE, int> node_index_inside_the_group;
-    std::vector<int> affinity_forest_parent_ids;
+    absl::flat_hash_map<gbbs::uintE, NodeId> node_index_inside_the_group;
+    std::vector<NodeId> affinity_forest_parent_ids;
     std::vector<double> affinity_forest_node_weights;
     if (use_target_cluster_size) {
       affinity_forest_parent_ids.reserve(node_idx.size());

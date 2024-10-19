@@ -18,12 +18,16 @@
 #include <functional>
 #include <limits>
 #include <optional>
+#include <tuple>
+#include <utility>
 
+#include "absl/container/flat_hash_map.h"
 #include "absl/log/absl_check.h"
 #include "gbbs/macros.h"
 #include "in_memory/clustering/parallel_clustered_graph_internal.h"
 #include "in_memory/clustering/parallel_dendrogram.h"
 #include "in_memory/clustering/types.h"
+#include "parlay/sequence.h"
 
 namespace graph_mining {
 namespace in_memory {
@@ -218,6 +222,16 @@ class ClusteredGraph {
   //   a single u (center).
   void StarMerge(parlay::sequence<std::tuple<uintE, uintE, float>> merge_seq);
 
+  // Given a set of disjoint merge sequences, where each node appears in at most
+  // one sequence (i.e., the sets of nodes referenced in each sequence form a
+  // disjoint set of node subsets), performs all merges and updates the internal
+  // clustered graph representation. The merges performed in each sequence do
+  // not need to be connected (they can form a forest). The order of the
+  // provided merges is preserved when applying them to the dendrogram.
+  void SubgraphMerges(
+      parlay::sequence<parlay::sequence<std::tuple<uintE, uintE, float>>>
+          subgraph_merges);
+
   // Returns the dendrogram object built over the course of merges.
   // Please see the comment on the GetClustering function in
   // parallel-dendrogram.h for more details about methods that the dendrogram
@@ -328,6 +342,10 @@ class ClusteredGraph {
     });
   }
 
+  void StarMergeImplementation(
+      parlay::sequence<std::tuple<uintE, uintE, float>> merge_seq,
+      bool perform_dendrogram_updates);
+
   SimilarityGraph* base_graph_;
   size_t num_nodes_;
   size_t last_unused_id_;
@@ -345,6 +363,14 @@ auto BuildClusteredGraph(SimilarityGraph* G) {
 template <class Weight, class SimilarityGraph>
 void ClusteredGraph<Weight, SimilarityGraph>::StarMerge(
     parlay::sequence<std::tuple<uintE, uintE, float>> merge_seq) {
+  return StarMergeImplementation(std::move(merge_seq),
+                                 /* perform_dendrogram_updates=*/true);
+}
+
+template <class Weight, class SimilarityGraph>
+void ClusteredGraph<Weight, SimilarityGraph>::StarMergeImplementation(
+    parlay::sequence<std::tuple<uintE, uintE, float>> merge_seq,
+    bool perform_dendrogram_updates) {
   // Sort merges based on the centers (note that a semi-sort is sufficient).
   auto get_key = [](const std::tuple<uintE, uintE, float>& x) -> uintE {
     return std::get<0>(x);
@@ -397,22 +423,27 @@ void ClusteredGraph<Weight, SimilarityGraph>::StarMerge(
       // neighbor is not yet cleared.
       clusters_[neighbor_id].LogicallyMergeWithParent(&clusters_[center_id]);
 
-      uintE neighbor_cluster = clusters_[neighbor_id].CurrentClusterId();
-      float merge_sim = std::get<2>(merge_seq[j]);
-      dendrogram_.MergeToParent(neighbor_cluster, new_cluster_id, merge_sim);
-      if (merge_sim > max_similarity) max_similarity = merge_sim;
+      if (perform_dendrogram_updates) {
+        uintE neighbor_cluster = clusters_[neighbor_id].CurrentClusterId();
+        float merge_sim = std::get<2>(merge_seq[j]);
+        dendrogram_.MergeToParent(neighbor_cluster, new_cluster_id, merge_sim);
+        if (merge_sim > max_similarity) max_similarity = merge_sim;
+      }
     }
 
-    uintE center_cluster = clusters_[center_id].CurrentClusterId();
-    dendrogram_.MergeToParent(center_cluster, new_cluster_id, max_similarity);
-
-    // Update the current cluster id of the center which remains active.
-    clusters_[center_id].SetClusterId(new_cluster_id);
+    if (perform_dendrogram_updates) {
+      uintE center_cluster = clusters_[center_id].CurrentClusterId();
+      dendrogram_.MergeToParent(center_cluster, new_cluster_id, max_similarity);
+      // Update the current cluster id of the center which remains active.
+      clusters_[center_id].SetClusterId(new_cluster_id);
+    }
   });
 
-  // Update last_unused_id_ (we created starts.size() many new clusters as a
-  // result of these merges).
-  last_unused_id_ += starts.size();
+  if (perform_dendrogram_updates) {
+    // Update last_unused_id_ (we created starts.size() many new clusters as a
+    // result of these merges).
+    last_unused_id_ += starts.size();
+  }
 
   // Next, map over deleted nodes and perform all edge deletions.
   parlay::parallel_for(0, merge_seq.size(), [&](size_t i) {
@@ -444,7 +475,7 @@ void ClusteredGraph<Weight, SimilarityGraph>::StarMerge(
   auto edges = parlay::sequence<Edge>::uninitialized(total_edges);
   constexpr uintE MaxNodeId = std::numeric_limits<uintE>::max();
 
-  // Copy edges from each deleted vertex's neighbor-lists to edges.
+  // Copy edges from each deleted node's neighbor-lists to edges.
   parlay::parallel_for(0, merge_seq.size(), [&](size_t i) {
     uintE center_id = std::get<0>(merge_seq[i]);
     uintE satellite_id = std::get<1>(merge_seq[i]);
@@ -518,6 +549,83 @@ void ClusteredGraph<Weight, SimilarityGraph>::StarMerge(
                 Weight::kRequiresEndpointsUpdate) {
     UpdateNeighbors(merge_seq, starts);
   }
+}
+
+template <class Weight, class SimilarityGraph>
+void ClusteredGraph<Weight, SimilarityGraph>::SubgraphMerges(
+    parlay::sequence<parlay::sequence<std::tuple<uintE, uintE, float>>>
+        subgraph_merges) {
+  // If a subgraph performs k merges, we need k new cluster ids for internal
+  // nodes in the dendrogram.
+  auto merge_sizes = parlay::tabulate(subgraph_merges.size(), [&](size_t i) {
+    return subgraph_merges[i].size();
+  });
+  size_t total_merges = parlay::scan_inplace(merge_sizes);
+
+  // Form star merges in merge_seq.
+  parlay::sequence<std::tuple<uintE, uintE, float>> merge_seq(total_merges);
+
+  // Map over the per-subgraph merges, and run sparse connectivity to map the
+  // subgraph-centric merges into star merges.
+  parlay::parallel_for(0, subgraph_merges.size(), [&](size_t i) {
+    // TODO: remove this one-off implementation of union-find, and 
+    // call a shared implementation from third_party/graph_mining.
+    absl::flat_hash_map<uintE, uintE> id_to_component;
+    // Compress performs full path compression.
+    auto Compress = [&](uintE u) {
+      uintE root = u;
+      while (id_to_component[root] != root) {
+        root = id_to_component[root];
+      }
+      while (id_to_component[u] != root) {
+        auto p = id_to_component[u];
+        id_to_component[u] = root;
+        u = p;
+      }
+    };
+    auto Unite = [&](uintE u, uintE v) {
+      Compress(u);
+      Compress(v);
+      ABSL_CHECK_EQ(id_to_component[u],u);
+      ABSL_CHECK_EQ(id_to_component[v],v);
+      ABSL_CHECK_LT(u, v);
+      id_to_component[v] = u;  // Point to the smaller component id.
+    };
+    for (auto [u, v, _] : subgraph_merges[i]) {
+      id_to_component[u] = u;
+      id_to_component[v] = v;
+    }
+    size_t new_id_offset = last_unused_id_ + merge_sizes[i];
+
+    for (auto [u, v, merge_sim] : subgraph_merges[i]) {
+      ABSL_CHECK_LT(u, v);
+      // Merge from larger to smaller id. u may show up again later in the merge
+      // sequence, since it has smaller id, so we preserve it.
+      uintE u_cluster = clusters_[u].CurrentClusterId();
+      uintE v_cluster = clusters_[v].CurrentClusterId();
+      dendrogram_.MergeToParent(u_cluster, new_id_offset, merge_sim);
+      dendrogram_.MergeToParent(v_cluster, new_id_offset, merge_sim);
+      clusters_[u].SetClusterId(new_id_offset);
+      ++new_id_offset;
+
+      Unite(u, v);
+    }
+
+    size_t subgraph_offset = merge_sizes[i];
+    for (size_t j = 0; j < subgraph_merges[i].size(); ++j) {
+      auto [u, v, merge_sim] = subgraph_merges[i][j];
+      Compress(u);
+      Compress(v);
+      auto rep_u = id_to_component[u];
+      auto rep_v = id_to_component[v];
+      ABSL_CHECK_EQ(rep_u, rep_v);
+      merge_seq[subgraph_offset + j] = {rep_v, v, merge_sim};
+    }
+  });
+
+  StarMergeImplementation(std::move(merge_seq),
+                          /*perform_dendrogram_updates=*/false);
+  last_unused_id_ += total_merges;
 }
 
 }  // namespace in_memory

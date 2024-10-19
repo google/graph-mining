@@ -15,6 +15,7 @@ Among others, this repository contains shared memory parallel clustering algorit
 
 * [Distributed Balanced Partitioning via Linear Embedding](https://dl.acm.org/doi/10.1145/2835776.2835829), Kevin Aydin, MohammadHossein Bateni, Vahab Mirrokni, WSDM'16 (the paper describes a MapReduce algorithm). See https://github.com/google/graph-mining/tree/main/in_memory/clustering/parline
 
+This is not an officially supported Google product.
 For questions/comments, please create an issue on this repository.
 
 ## Quickstart

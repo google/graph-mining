@@ -65,11 +65,31 @@ message ParHacConfig {
   optional double weight_threshold = 3;
 }
 
+// Shared-memory implementation of TeraHac: https://arxiv.org/abs/2308.03578
+message TeraHacConfig {
+  // This parameter controls the accuracy of the TeraHac algorithm.
+  // Specifically, TeraHac computes a (1+epsilon)-approximate dendrogram for
+  // average-linkage (see the ParHacConfig description for an explanation of
+  // c-approximate HAC.
+  //
+  // Note that if epsilon is not specified, we use a default value of 0.1.
+  optional double epsilon = 2;
+
+  // This parameter is used to both *prune* edges while running the TeraHac
+  // algorithm, and to *cut* the final dendrogram that's obtained by running the
+  // TeraHac algorithm. We will return a clustering induced by the connected
+  // components of the dendrogram where all edges with weight below the weight
+  // threshold are removed.
+  optional double weight_threshold = 3;
+}
+
 // Config for InMemoryClusterer subclasses. When adding a new subclass:
 //  a) add a new proto definition to this file,
 //  b) add this proto to the config oneof in ClustererConfig.
 // Next available tag: 17
 message ClustererConfig {
+  reserved 6;
+
   oneof config {
     // Use this to pass parameters to experimental partitioners and
     // partitioners defined in unittests.
@@ -80,6 +100,7 @@ message ClustererConfig {
     CoconductanceConfig coconductance_config = 12;
     graph_mining.in_memory.LinePartitionerConfig line_partitioner_config = 14;
     ParHacConfig parhac_clusterer_config = 15;
+    TeraHacConfig terahac_clusterer_config = 17;
   }
 }
 

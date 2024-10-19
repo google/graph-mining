@@ -15,7 +15,11 @@
 load("@com_google_protobuf//:protobuf.bzl", "py_proto_library")
 load("@rules_proto//proto:defs.bzl", "proto_library")
 
-package(default_visibility = ["//visibility:public"])
+package(
+        default_visibility = ["//visibility:public"],
+)
+
+licenses(["notice"])
 
 cc_library(
     name = "parallel_correlation",
@@ -29,10 +33,19 @@ cc_library(
         "//in_memory/clustering:in_memory_clusterer",
         "//in_memory/clustering:types",
         "//in_memory/parallel:parallel_graph_utils",
+        "//in_memory/parallel:parallel_sequence_ops",
         "//in_memory/parallel:scheduler",
+        "@com_github_gbbs//gbbs:bridge",
+        "@com_github_gbbs//gbbs:edge_map_data",
+        "@com_github_gbbs//gbbs:graph",
+        "@com_github_gbbs//gbbs:macros",
+        "@com_github_gbbs//gbbs:vertex",
+        "@com_github_gbbs//gbbs:vertex_subset",
         "@com_google_absl//absl/log:absl_log",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/status:statusor",
+        "@parlaylib//parlay:parallel",
+        "@parlaylib//parlay:sequence",
     ],
     alwayslink = 1,
 )

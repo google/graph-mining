@@ -147,7 +147,7 @@ TEST(DynamicHacTest, TwoEdges) {
   ASSERT_OK(clusterer->Insert({adj_list_0, adj_list_1, adj_list_2}));
 
   EXPECT_THAT(clusterer->FlatCluster(0.7),
-              IsOkAndHolds(UnorderedElementsAre(std::vector({0}),
+              IsOkAndHolds(UnorderedElementsAre(std::vector<NodeId>({0}),
                                                 UnorderedElementsAre(2, 1))));
 
   const auto& dendrogram = clusterer->Dendrogram();
@@ -225,7 +225,7 @@ TEST(DynamicHacTest, Triangle) {
   ASSERT_OK(clusterer->Insert({adj_list_0, adj_list_1, adj_list_2}));
 
   EXPECT_THAT(clusterer->FlatCluster(0.75),
-              IsOkAndHolds(UnorderedElementsAre(std::vector({1}),
+              IsOkAndHolds(UnorderedElementsAre(std::vector<NodeId>({1}),
                                                 UnorderedElementsAre(2, 0))));
 
   const auto& dendrogram = clusterer->Dendrogram();
@@ -295,7 +295,7 @@ TEST(DynamicHacTest, TriangleLargeNodeId) {
   ASSERT_OK(clusterer->Insert({adj_list_0, adj_list_1, adj_list_2}));
 
   EXPECT_THAT(clusterer->FlatCluster(0.75),
-              IsOkAndHolds(UnorderedElementsAre(std::vector({11}),
+              IsOkAndHolds(UnorderedElementsAre(std::vector<NodeId>({11}),
                                                 UnorderedElementsAre(10, 13))));
 
   const auto& dendrogram = clusterer->Dendrogram();
@@ -317,8 +317,9 @@ TEST(DynamicHacTest, ClustersIsolatedGraph) {
   ASSERT_OK(clusterer->Insert({adj_list_0, adj_list_1, adj_list_2}));
 
   EXPECT_THAT(clusterer->FlatCluster(0.75),
-              IsOkAndHolds(UnorderedElementsAre(
-                  std::vector({0}), std::vector({1}), std::vector({2}))));
+              IsOkAndHolds(UnorderedElementsAre(std::vector<NodeId>({0}),
+                                                std::vector<NodeId>({1}),
+                                                std::vector<NodeId>({2}))));
 
   const auto& dendrogram = clusterer->Dendrogram();
 
@@ -670,11 +671,12 @@ TEST(DynamicHacTest, ThresholdTwoEdges) {
   ASSERT_OK(clusterer->Insert({adj_list_0, adj_list_1, adj_list_2}));
 
   EXPECT_THAT(clusterer->FlatCluster(1),
-              IsOkAndHolds(UnorderedElementsAre(
-                  std::vector({0}), std::vector({1}), std::vector({2}))));
+              IsOkAndHolds(UnorderedElementsAre(std::vector<NodeId>({0}),
+                                                std::vector<NodeId>({1}),
+                                                std::vector<NodeId>({2}))));
 
   EXPECT_THAT(clusterer->FlatCluster(0.75),
-              IsOkAndHolds(UnorderedElementsAre(std::vector({0}),
+              IsOkAndHolds(UnorderedElementsAre(std::vector<NodeId>({0}),
                                                 UnorderedElementsAre(2, 1))));
 
   const auto& dendrogram = clusterer->Dendrogram();
@@ -711,8 +713,9 @@ TEST(DynamicHacTest, SingletonBluePartition) {
   ASSERT_OK(clusterer->Insert({adj_list_0, adj_list_2, adj_list_3}));
   ASSERT_OK(clusterer->Insert({adj_list_1}));
 
-  EXPECT_THAT(clusterer->FlatCluster(0),
-              IsOkAndHolds(UnorderedElementsAre(std::vector({0, 1, 2, 3}))));
+  EXPECT_THAT(
+      clusterer->FlatCluster(0),
+      IsOkAndHolds(UnorderedElementsAre(std::vector<NodeId>({0, 1, 2, 3}))));
 }
 
 TEST(DynamicHacTest, TestWeightedErdosRenyiThresholdInsertion) {

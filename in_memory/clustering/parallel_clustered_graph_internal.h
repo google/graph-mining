@@ -17,6 +17,7 @@
 
 #include <algorithm>
 #include <cstddef>
+#include <limits>
 #include <optional>
 #include <utility>
 
@@ -418,15 +419,21 @@ class SimpleConcurrentTable {
   }
 
   void Map(std::function<void(K, V&)> map_fn) {
-    parlay::parallel_for(
-        0, Capacity(),
-        [&](size_t i) {
-          if (Nonempty(table_[i])) {
-            auto& [k, v] = table_[i];
-            map_fn(k, v);
-          }
-        },
-        1024);
+    parlay::parallel_for(0, Capacity(), [&](size_t i) {
+      if (Nonempty(table_[i])) {
+        auto& [k, v] = table_[i];
+        map_fn(k, v);
+      }
+    });
+  }
+
+  void MapSequential(std::function<void(K, V&)> map_fn) {
+    for (size_t i = 0; i < Capacity(); ++i) {
+      if (Nonempty(table_[i])) {
+        auto& [k, v] = table_[i];
+        map_fn(k, v);
+      }
+    }
   }
 
   void IterateUntil(std::function<bool(K, V)> iter_fn) const {
@@ -475,10 +482,11 @@ class SimpleConcurrentTable {
  private:
   inline size_t HashToRange(size_t h) const { return h & (Capacity() - 1); }
   inline size_t FirstIndex(K& k) const {
-    static_assert(sizeof(K) == 4);
+    static_assert(sizeof(K) == 4 || sizeof(K) == 8);
     // TODO: what about using absl::Hash here? Is the performance
     // better or worse?
-    return HashToRange(parlay::hash32_2(k));
+    return HashToRange(sizeof(k) == 4 ? parlay::hash32_2(k)
+                                      : parlay::hash64_2(k));
   }
   inline size_t IncrementIndex(size_t h) const { return HashToRange(h + 1); }
 

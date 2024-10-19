@@ -15,7 +15,9 @@
 load("@com_google_protobuf//:protobuf.bzl", "py_proto_library")
 load("@rules_proto//proto:defs.bzl", "proto_library")
 
-package(default_visibility = ["//visibility:public"])
+package(
+        default_visibility = ["//visibility:public"],
+)
 
 licenses(["notice"])
 

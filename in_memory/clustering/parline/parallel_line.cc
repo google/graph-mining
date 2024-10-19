@@ -99,7 +99,7 @@ absl::StatusOr<InMemoryClusterer::Clustering> SliceEmbedding(
   parlay::parallel_for(0, num_clusters, [&](std::size_t i) {
     int start = i == 0 ? 0 : cluster_size_prefix_sum[i - 1];
     int end = cluster_size_prefix_sum[i];
-    std::vector<int>& cluster = clustering[i];
+    auto& cluster = clustering[i];
     cluster.reserve(end - start);
     std::copy(embedding.cbegin() + start, embedding.cbegin() + end,
               std::back_inserter(cluster));

@@ -15,7 +15,10 @@
 #include "in_memory/clustering/correlation/parallel_correlation.h"
 
 #include <array>
+#include <cstddef>
 #include <cstdint>
+#include <iomanip>
+#include <ios>
 #include <memory>
 #include <optional>
 #include <tuple>
@@ -25,13 +28,22 @@
 #include "absl/log/absl_log.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
+#include "gbbs/bridge.h"
+#include "gbbs/edge_map_data.h"
+#include "gbbs/graph.h"
+#include "gbbs/macros.h"
+#include "gbbs/vertex.h"
+#include "gbbs/vertex_subset.h"
 #include "in_memory/clustering/config.pb.h"
 #include "in_memory/clustering/correlation/parallel_correlation_util.h"
 #include "in_memory/clustering/in_memory_clusterer.h"
 #include "in_memory/clustering/types.h"
 #include "in_memory/parallel/parallel_graph_utils.h"
+#include "in_memory/parallel/parallel_sequence_ops.h"
 #include "in_memory/parallel/scheduler.h"
 #include "in_memory/status_macros.h"
+#include "parlay/parallel.h"
+#include "parlay/sequence.h"
 
 namespace graph_mining::in_memory {
 
@@ -242,16 +254,23 @@ double IterateBestMoves(
       gbbs::vertexSubset(num_nodes, num_nodes, std::move(seq)));
 
   // Iterate over best moves
-  for (int local_iter = 0; local_iter < num_inner_iterations && local_moved;
-       ++local_iter) {
+  for (int local_iter = 0; local_iter < num_inner_iterations; ++local_iter) {
     ABSL_LOG(INFO) << "Best moves iteration " << local_iter;
     auto new_moved_subset = BestMovesForVertexSubset(
         current_graph, num_nodes, moved_subset.get(), helper, clusterer_config);
     moved_subset.swap(new_moved_subset);
     local_moved = !moved_subset->isEmpty();
+    ABSL_LOG(INFO) << "Local movements: " << local_moved;
+    if (!local_moved) {
+      // Break early to save an extra objective computation.
+      break;
+    }
 
     // Compute new objective given by the local moves in this iteration
     double curr_objective = helper->ComputeObjective(*current_graph);
+    ABSL_LOG(INFO) << std::fixed << std::setprecision(5)
+                   << "Current objective: " << curr_objective
+                   << ", previous objective: " << max_objective;
 
     // Update maximum objective
     if (curr_objective > max_objective) {
@@ -313,6 +332,10 @@ absl::Status ParallelCorrelationClusterer::RefineClusters(
   parlay::parallel_for(0, graph_.Graph()->n,
                        [&](std::size_t i) { cluster_ids[i] = i; });
 
+  // `original_node_id_to_current_node_ids` maintains the mapping of original
+  // node ids to the node ids in the graph for the current iteration.
+  std::vector<gbbs::uintE> original_node_id_to_current_node_ids = cluster_ids;
+
   // `cluster_id_and_part_to_new_node_ids` maintains the mapping of {cluster id,
   // part} at the current layer to the node ids in the compressed graph for the
   // next layer.
@@ -320,11 +343,6 @@ absl::Status ParallelCorrelationClusterer::RefineClusters(
   // This is needed only for the bipartite case.
   std::vector<std::array<gbbs::uintE, 2>> cluster_id_and_part_to_new_node_ids(
       graph_.Graph()->n, {0, 0});
-
-  // `previous_node_parts` maintains the node part information for the graph
-  // used in the previous clustering iteration. This is needed for node id
-  // translation in the bipartite case.
-  std::vector<NodePartId> previous_node_parts;
 
   std::unique_ptr<ClusteringHelper> current_helper;
 
@@ -372,7 +390,7 @@ absl::Status ParallelCorrelationClusterer::RefineClusters(
     ABSL_LOG(INFO) << "Clustering iteration " << iter;
     symmetric_ptr_graph* current_graph =
         (iter == 0) ? graph_.Graph() : compressed_graph.get();
-    auto helper = (iter == 0) ? initial_helper : current_helper.get();
+    auto* helper = (iter == 0) ? initial_helper : current_helper.get();
 
     // Iterate over best moves.
     // TODO: refactor local_cluster_ids to be a return value of
@@ -400,29 +418,21 @@ absl::Status ParallelCorrelationClusterer::RefineClusters(
     max_objective = new_objective;
 
     // Compress cluster ids in initial_helper based on helper
-    if (config.use_bipartite_objective() && iter != 0) {
-      // For bipartite graph, first create the linkage between the node ids from
-      // the previous level to the current level.
-      //
-      // After `FlattenBipartiteClustering`, `cluster_ids[i]` contains the node
-      // id at the current level that corresponds to the node id `i` at the
-      // previous level.
-      cluster_ids =
-          FlattenBipartiteClustering(cluster_ids, previous_node_parts,
-                                     cluster_id_and_part_to_new_node_ids);
-    }
-    cluster_ids = graph_mining::in_memory::FlattenClustering(cluster_ids,
-                                                             local_cluster_ids);
+    cluster_ids = graph_mining::in_memory::FlattenClustering(
+        config.use_bipartite_objective() ? original_node_id_to_current_node_ids
+                                         : cluster_ids,
+        local_cluster_ids);
 
-    if (use_refinement && iter == num_iterations - 1) {
-      recursive_cluster_ids[iter] = local_cluster_ids;
-      recursive_node_weights[iter] = helper->NodeWeights();
-      recursive_node_parts[iter] = helper->NodeParts();
-      recursive_cluster_id_and_part_to_new_node_ids[iter] = {};
-      recursive_graphs[iter] = std::move(compressed_graph);
+    if (iter == num_iterations - 1) {
+      if (use_refinement) {
+        recursive_cluster_ids[iter] = local_cluster_ids;
+        recursive_node_weights[iter] = helper->NodeWeights();
+        recursive_node_parts[iter] = helper->NodeParts();
+        recursive_cluster_id_and_part_to_new_node_ids[iter] = {};
+        recursive_graphs[iter] = std::move(compressed_graph);
+      }
+      break;
     }
-
-    if (iter == num_iterations - 1) break;
 
     // TODO: May want to compress out size 0 clusters when compressing
     // the graph
@@ -434,6 +444,10 @@ absl::Status ParallelCorrelationClusterer::RefineClusters(
           std::move(cluster_id_and_part_to_new_node_ids));
       cluster_id_and_part_to_new_node_ids =
           std::move(bipartite_metadata.cluster_id_and_part_to_new_node_ids);
+      original_node_id_to_current_node_ids =
+          graph_mining::in_memory::FlattenClustering(
+              original_node_id_to_current_node_ids,
+              bipartite_metadata.node_id_to_new_node_ids);
     }
 
     graph_mining::in_memory::GraphWithWeights new_compressed_graph;
@@ -472,9 +486,6 @@ absl::Status ParallelCorrelationClusterer::RefineClusters(
 
     // Prepare for the next iteration.
     local_cluster_ids.resize(compressed_graph->n);
-    if (config.use_bipartite_objective()) {
-      previous_node_parts = helper->NodeParts();
-    }
   }
 
   // Perform multi-level refinement

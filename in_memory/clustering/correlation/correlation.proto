@@ -142,7 +142,9 @@ message CorrelationClustererConfig {
   //
   // When set to true, we adjust the correlation objective computation for a
   // bipartite graph setting, where we do not penalize missing edges among nodes
-  // within the same graph parition.
+  // within the same graph partition. When the algorithm is run on a graph in
+  // go/graph-format, the "side" of a node is determined by the
+  // graph_mining.Node.part integer which should be set to 0 or 1.
   //
   // Specifically, we have
   //

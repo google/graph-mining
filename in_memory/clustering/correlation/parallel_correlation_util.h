@@ -32,8 +32,6 @@
 #include "in_memory/clustering/types.h"
 #include "in_memory/parallel/parallel_graph_utils.h"
 
-ABSL_DECLARE_FLAG(bool, enable_cc_self_loop_bug_fix);
-
 namespace graph_mining::in_memory {
 
 // Returns true if all node parts are either 0 or 1. Returns false otherwise.
