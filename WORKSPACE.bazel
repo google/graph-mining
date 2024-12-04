@@ -42,7 +42,7 @@ http_archive(
 git_repository(
     name = "com_github_gbbs",
     remote = "https://github.com/ParAlg/gbbs.git",
-    commit = "8d512cb62677fa3c878e8a0a0105bc2e38a8ce43",
+    commit = "7e75bffb4081cb5a415a917c8abd3754c6f96b2c",
 )
 
 git_repository(

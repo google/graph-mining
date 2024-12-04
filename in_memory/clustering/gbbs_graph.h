@@ -186,7 +186,7 @@ inline void SetOutDegree(gbbs::symmetric_vertex<Weight>* vertex,
 template <typename Weight>
 inline void SetOutNeighbors(
     gbbs::asymmetric_vertex<Weight>* vertex,
-    typename gbbs::asymmetric_vertex<Weight>::edge_type* out_neighbors) {
+    typename gbbs::asymmetric_vertex<Weight>::neighbor_type* out_neighbors) {
   vertex->out_nghs = out_neighbors;
 }
 
@@ -196,7 +196,7 @@ inline void SetOutNeighbors(
 template <typename Weight>
 inline void SetOutNeighbors(
     gbbs::symmetric_vertex<Weight>* vertex,
-    typename gbbs::symmetric_vertex<Weight>::edge_type* out_neighbors) {
+    typename gbbs::symmetric_vertex<Weight>::neighbor_type* out_neighbors) {
   vertex->neighbors = out_neighbors;
 }
 
