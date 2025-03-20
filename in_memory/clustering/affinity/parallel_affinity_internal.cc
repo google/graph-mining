@@ -503,10 +503,9 @@ parlay::sequence<gbbs::uintE> EnforceMaxClusterSize(
 
   const auto& size_constraint = size_constraint_config.size_constraint;
 
-  // Group node ides by connected component ids.
-  auto cluster_groups = OutputIndicesById<gbbs::uintE, gbbs::uintE>(
-      std::vector<gbbs::uintE>(cluster_ids.begin(), cluster_ids.end()),
-      [](gbbs::uintE i) { return i; }, n);
+  // Group node IDs by connected component ids.
+  auto cluster_groups =
+      OutputIndicesById<gbbs::uintE, gbbs::uintE>(cluster_ids);
 
   std::vector<double> node_weights = size_constraint_config.node_weights;
   if (node_weights.empty()) {

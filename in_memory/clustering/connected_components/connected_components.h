@@ -15,26 +15,42 @@
 #ifndef THIRD_PARTY_GRAPH_MINING_IN_MEMORY_CLUSTERING_CONNECTED_COMPONENTS_CONNECTED_COMPONENTS_H_
 #define THIRD_PARTY_GRAPH_MINING_IN_MEMORY_CLUSTERING_CONNECTED_COMPONENTS_CONNECTED_COMPONENTS_H_
 
+#include <cstddef>
+#include <vector>
+
+#include "absl/base/nullability.h"
+#include "absl/status/statusor.h"
+#include "absl/types/span.h"
 #include "in_memory/clustering/connected_components/connected_components_graph.h"
 #include "in_memory/clustering/in_memory_clusterer.h"
 #include "in_memory/parallel/parallel_sequence_ops.h"
 #include "in_memory/parallel/scheduler.h"
+#include "in_memory/status_macros.h"
+#include "parlay/parallel.h"
 
 namespace graph_mining::in_memory {
 
+// Clusterer that produces one cluster for each connected component in the
+// graph, ignoring edge directions.
 class ParallelConnectedComponentsClusterer : public InMemoryClusterer {
  public:
-  Graph* MutableGraph() override { return &graph_; }
+  absl::Nonnull<Graph*> MutableGraph() override { return &graph_; }
 
   absl::StatusOr<Clustering> Cluster(
       const graph_mining::in_memory::ClustererConfig& config) const override {
     
-    const auto& parents = graph_.ParentArray();
+    ASSIGN_OR_RETURN(absl::Span<const NodeId> parents, graph_.ParentArray());
+    return graph_mining::in_memory::OutputIndicesById<NodeId, NodeId>(parents);
+  }
 
-    auto get_clusters = [&](NodeId i) -> NodeId { return i; };
-
-    return graph_mining::in_memory::OutputIndicesById<gbbs::uintE, NodeId>(
-        absl::MakeSpan(parents), get_clusters, parents.size());
+  absl::StatusOr<std::vector<NodeId>> ClusterAndReturnClusterIds(
+      const graph_mining::in_memory::ClustererConfig& config) const override {
+    
+    ASSIGN_OR_RETURN(absl::Span<const NodeId> parents, graph_.ParentArray());
+    std::vector<NodeId> cluster_ids(parents.size());
+    parlay::parallel_for(0, cluster_ids.size(),
+                         [&](std::size_t i) { cluster_ids[i] = parents[i]; });
+    return cluster_ids;
   }
 
  private:

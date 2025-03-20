@@ -18,21 +18,17 @@
 #define THIRD_PARTY_GRAPH_MINING_IN_MEMORY_CLUSTERING_HAC_SUBGRAPH_APPROXIMATE_SUBGRAPH_HAC_GRAPH_H_
 
 #include <cstddef>
-#include <functional>
-#include <limits>
-#include <memory>
 #include <tuple>
 #include <utility>
 #include <vector>
 
-#include "utils/container/fixed_size_priority_queue.h"
-#include "absl/container/flat_hash_map.h"
 #include "absl/container/flat_hash_set.h"
 #include "absl/status/statusor.h"
 #include "in_memory/clustering/dendrogram.h"
 #include "in_memory/clustering/graph.h"
 #include "in_memory/clustering/hac/subgraph/approximate_subgraph_hac_node.h"
 #include "in_memory/clustering/in_memory_clusterer.h"
+#include "utils/container/fixed_size_priority_queue.h"
 
 namespace graph_mining::in_memory {
 
@@ -222,7 +218,8 @@ class ApproximateSubgraphHacGraph {
   // A priority queue indexed on the nodes. Each node's priority is the edge
   // weight of a neighbor that is (1+epsilon)-good at the time the PQ is
   // updated.
-  FixedSizePriorityQueue<double> node_pq_;
+  FixedSizePriorityQueue</*PriorityType=*/double, /*IndexType=*/NodeId>
+      node_pq_;
 
   // Stores per-node information.
   std::vector<ApproximateSubgraphHacNode> nodes_;

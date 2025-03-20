@@ -15,6 +15,7 @@
 #include "in_memory/clustering/clustering_utils.h"
 
 #include <algorithm>
+#include <cstddef>
 #include <string>
 #include <vector>
 
@@ -25,6 +26,10 @@
 #include "absl/strings/str_cat.h"
 #include "absl/types/span.h"
 #include "in_memory/clustering/types.h"
+#include "parlay/delayed_sequence.h"
+#include "parlay/parallel.h"
+#include "parlay/primitives.h"
+#include "parlay/slice.h"
 
 namespace graph_mining::in_memory {
 
@@ -59,7 +64,7 @@ Clustering CanonicalizeClustering(Clustering clustering,
   return clustering;
 }
 
-std::vector<NodeId> CreateNodeIdToClusterIdMap(int num_nodes,
+std::vector<NodeId> CreateNodeIdToClusterIdMap(NodeId num_nodes,
                                                const Clustering& clustering) {
   std::vector<NodeId> node_id_to_cluster_id(num_nodes);
   for (NodeId i = 0; i < clustering.size(); i++) {
@@ -68,6 +73,26 @@ std::vector<NodeId> CreateNodeIdToClusterIdMap(int num_nodes,
     }
   }
 
+  return node_id_to_cluster_id;
+}
+
+std::vector<NodeId> CreateNodeIdToClusterIdMapParallel(
+    const Clustering& clustering) {
+  auto cluster_sizes = parlay::delayed_seq<std::size_t>(
+      clustering.size(), [&](size_t i) { return clustering[i].size(); });
+  std::size_t num_nodes = parlay::reduce(parlay::make_slice(cluster_sizes));
+  std::vector<NodeId> node_id_to_cluster_id(num_nodes);
+  parlay::parallel_for(0, clustering.size(), [&](std::size_t i) {
+    parlay::parallel_for(0, clustering[i].size(), [&](std::size_t j) {
+      NodeId node_id = clustering[i][j];
+      ABSL_CHECK_GE(node_id, 0)
+          << "Node IDs must be non-negative; found " << node_id;
+      ABSL_CHECK_LT(node_id, num_nodes)
+          << "Node IDs must be smaller than the number of nodes (" << num_nodes
+          << "); found " << node_id;
+      node_id_to_cluster_id[node_id] = i;
+    });
+  });
   return node_id_to_cluster_id;
 }
 

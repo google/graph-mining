@@ -16,19 +16,32 @@
 #define THIRD_PARTY_GRAPH_MINING_IN_MEMORY_CLUSTERING_GBBS_GRAPH_H_
 
 #include <algorithm>
+#include <atomic>
+#include <cstddef>
+#include <cstdint>
+#include <functional>
+#include <limits>
 #include <memory>
+#include <tuple>
+#include <utility>
 #include <vector>
 
-#include "absl/container/flat_hash_map.h"
+#include "absl/log/check.h"
 #include "absl/status/status.h"
+#include "absl/status/statusor.h"
 #include "absl/strings/str_cat.h"
 #include "absl/synchronization/mutex.h"
-#include "absl/types/optional.h"
+#include "gbbs/bridge.h"
 #include "gbbs/graph.h"
 #include "gbbs/macros.h"
+#include "gbbs/vertex.h"
 #include "in_memory/clustering/in_memory_clusterer.h"
 #include "in_memory/clustering/types.h"
+#include "in_memory/parallel/parallel_sequence_ops.h"
 #include "in_memory/parallel/scheduler.h"
+#include "in_memory/parallel/streaming_writer.h"
+#include "in_memory/status_macros.h"
+#include "parlay/sequence.h"
 
 namespace graph_mining::in_memory {
 
@@ -38,9 +51,18 @@ namespace graph_mining::in_memory {
 //  Y specifies the weight type
 // Setting Y = gbbs::empty gives an unweighted graph.
 //
+// Note that this graph container only materializes the out-edges.
+// - If X = symmetric, then the out-edges are the same as the in-edges and so
+// both are materialized.
+// - If X = asymmetric, then the out-edges and in-edges of each vertex are
+// different, and representing both would double the memory usage of the graph
+// container. This container chooses to only materialize the out-edges, which
+// is sufficient for many applications. If in-edges are also required, see the
+// class DirectedGbbsInOutEdgesGraph below.
+//
 // Note that GBBS doesn't support node weights.
 template <typename GraphType>
-class GbbsGraphBase : public InMemoryClusterer::Graph {
+class GbbsOutEdgesOnlyGraph : public InMemoryClusterer::Graph {
  public:
   // Edge type of the underneath GBBS graph.
   using Edge = std::tuple<gbbs::uintE, typename GraphType::weight_type>;
@@ -110,15 +132,15 @@ class GbbsGraphBase : public InMemoryClusterer::Graph {
   static constexpr NodePartId kDefaultNodePartId = 0;
 };
 
-// Instantiations of the GbbsGraphBase. In each case multiple edges and
+// Instantiations of the GbbsOutEdgesOnlyGraph. In each case multiple edges and
 // self-loops are allowed.
 // Adding a new instantiation may require adding overloads in the internal
 // namespace below.
 
 // Weighted undirected graph. WARNING: the caller must ensure an undirected
-// graph is loaded (see comment on GbbsGraphBase::Import).
+// graph is loaded (see comment on GbbsOutEdgesOnlyGraph::Import).
 class GbbsGraph
-    : public GbbsGraphBase<
+    : public GbbsOutEdgesOnlyGraph<
           gbbs::symmetric_ptr_graph<gbbs::symmetric_vertex, float>> {
  public:
   // Reweights graph. Must be called after FinishImport.
@@ -134,22 +156,39 @@ class GbbsGraph
           edge_reweighter);
 };
 
-// Directed unweighted graph. The resulting graph has only its out-neighbors
-// populated.
-using DirectedUnweightedGbbsGraph = GbbsGraphBase<
+// Directed graph that also materializes the in-edges when FinishImport() is
+// called.
+template <class Weight>
+class DirectedGbbsInOutEdgesGraph
+    : public GbbsOutEdgesOnlyGraph<
+          gbbs::asymmetric_ptr_graph<gbbs::asymmetric_vertex, Weight>> {
+ public:
+  // Constructs graph_ using nodes_ and edges_, and optionally node_weights_ and
+  // node_parts. Also materializes the in-edges.
+  absl::Status FinishImport() override;
+
+ protected:
+  using GraphType = gbbs::asymmetric_ptr_graph<gbbs::asymmetric_vertex, Weight>;
+  // Maintains in-edges.
+  std::vector<std::unique_ptr<std::tuple<gbbs::uintE, Weight>[]>> in_edges_;
+};
+
+using DirectedUnweightedGbbsGraph = DirectedGbbsInOutEdgesGraph<gbbs::empty>;
+
+using DirectedGbbsGraph = DirectedGbbsInOutEdgesGraph<float>;
+
+using DirectedUnweightedOutEdgesGbbsGraph = GbbsOutEdgesOnlyGraph<
     gbbs::asymmetric_ptr_graph<gbbs::asymmetric_vertex, gbbs::empty>>;
 
-// Weighted directed graph.
-using DirectedGbbsGraph =
-    GbbsGraphBase<gbbs::asymmetric_ptr_graph<gbbs::asymmetric_vertex, float>>;
+using DirectedOutEdgesGbbsGraph = GbbsOutEdgesOnlyGraph<
+    gbbs::asymmetric_ptr_graph<gbbs::asymmetric_vertex, float>>;
 
-// Unweighted undirected graph.
-using UnweightedGbbsGraph = GbbsGraphBase<
+using UnweightedGbbsGraph = GbbsOutEdgesOnlyGraph<
     gbbs::symmetric_ptr_graph<gbbs::symmetric_vertex, gbbs::empty>>;
 
 // Weighted undirected graph with sorted neighbors.
 class UnweightedSortedNeighborGbbsGraph
-    : public GbbsGraphBase<
+    : public GbbsOutEdgesOnlyGraph<
           gbbs::symmetric_ptr_graph<gbbs::symmetric_vertex, gbbs::empty>> {
  public:
   absl::Status Import(AdjacencyList adjacency_list) override;
@@ -213,7 +252,7 @@ inline void SetEdge(std::tuple<gbbs::uintE, float>* edge,
 }  // namespace internal
 
 template <typename GraphType>
-void GbbsGraphBase<GraphType>::EnsureSize(NodeId id) {
+void GbbsOutEdgesOnlyGraph<GraphType>::EnsureSize(NodeId id) {
   if (nodes_.size() < id) {
     // Create a default vertex to fill in the gap in the range. Note that there
     // is no guarantee on whether the `id` in the default vertex matches the
@@ -233,7 +272,8 @@ void GbbsGraphBase<GraphType>::EnsureSize(NodeId id) {
 }
 
 template <typename GraphType>
-absl::Status GbbsGraphBase<GraphType>::PrepareImport(const int64_t num_nodes) {
+absl::Status GbbsOutEdgesOnlyGraph<GraphType>::PrepareImport(
+    const int64_t num_nodes) {
   if (num_nodes > std::numeric_limits<NodeId>::max()) {
     return absl::InvalidArgumentError(
         absl::StrCat("Total number of nodes exceeds limit: ", num_nodes));
@@ -252,7 +292,12 @@ absl::Status GbbsGraphBase<GraphType>::PrepareImport(const int64_t num_nodes) {
 }
 
 template <typename GraphType>
-absl::Status GbbsGraphBase<GraphType>::Import(AdjacencyList adjacency_list) {
+absl::Status GbbsOutEdgesOnlyGraph<GraphType>::Import(
+    AdjacencyList adjacency_list) {
+  if (adjacency_list.id < 0) {
+    return absl::InvalidArgumentError(
+        absl::StrCat("Node ID cannot be negative: ", adjacency_list.id));
+  }
   using GbbsEdge = std::tuple<gbbs::uintE, typename GraphType::weight_type>;
   auto outgoing_edges_size = adjacency_list.outgoing_edges.size();
   auto out_neighbors = std::make_unique<GbbsEdge[]>(outgoing_edges_size);
@@ -261,7 +306,15 @@ absl::Status GbbsGraphBase<GraphType>::Import(AdjacencyList adjacency_list) {
   //   gbbs::parallel_for(0, outgoing_edges_size, [&](size_t i) {
   //     out_neighbors[i] ...;
   //   });
+  NodeId maximum_node_id_in_adjacency_list = adjacency_list.id;
   for (size_t i = 0; i < outgoing_edges_size; ++i) {
+    NodeId neighbor_id = adjacency_list.outgoing_edges[i].first;
+    if (neighbor_id < 0) {
+      return absl::InvalidArgumentError(
+          absl::StrCat("Neighbor ID cannot be negative: ", neighbor_id));
+    }
+    maximum_node_id_in_adjacency_list =
+        std::max(maximum_node_id_in_adjacency_list, neighbor_id);
     internal::SetEdge(&out_neighbors[i], adjacency_list.outgoing_edges[i]);
   }
 
@@ -282,18 +335,18 @@ absl::Status GbbsGraphBase<GraphType>::Import(AdjacencyList adjacency_list) {
     // No prior knowledge on the total number of nodes. Use regular update with
     // lock.
     absl::MutexLock lock(&mutex_);
-    EnsureSize(adjacency_list.id + 1);
+    EnsureSize(maximum_node_id_in_adjacency_list + 1);
     update_func();
   } else {
     // Apply lock-free optimization. This works only if the total number of
     // nodes are given prior to the graph building stage.
-    if (adjacency_list.id >= nodes_.size() ||
-        adjacency_list.id >= edges_.size()) {
-      return absl::FailedPreconditionError(
-          "Lock-free optimization requires that there be no dangling edge in "
-          "the input graph. Please verify that the input complies with that "
-          "requirement. Contact Graph Mining team (gm-clustering@) for "
-          "assistance.");
+    if (maximum_node_id_in_adjacency_list >= nodes_.size() ||
+        maximum_node_id_in_adjacency_list >= edges_.size()) {
+      return absl::OutOfRangeError(absl::StrCat(
+          "Attempted to insert edge incident to a node with invalid ID: ",
+          maximum_node_id_in_adjacency_list,
+          " is no smaller than the explicitly provided number of nodes (",
+          num_nodes_, ")"));
     }
     update_func();
   }
@@ -302,49 +355,11 @@ absl::Status GbbsGraphBase<GraphType>::Import(AdjacencyList adjacency_list) {
 }
 
 template <typename GraphType>
-absl::Status GbbsGraphBase<GraphType>::FinishImport() {
+absl::Status GbbsOutEdgesOnlyGraph<GraphType>::FinishImport() {
   
   auto degrees = parlay::delayed_seq<std::size_t>(
       nodes_.size(), [this](size_t i) { return nodes_[i].out_degree(); });
   auto num_edges = parlay::reduce(parlay::make_slice(degrees));
-
-  auto neighbors = parlay::delayed_seq<gbbs::uintE>(nodes_.size(), [this](
-                                                                       size_t
-                                                                           i) {
-    if (nodes_[i].out_degree() == 0) return gbbs::uintE{0};
-    // TODO: Replace std::max_element with parallel reduce.
-    auto max_neighbor = std::max_element(
-        nodes_[i].out_neighbors().neighbors,
-        nodes_[i].out_neighbors().neighbors + nodes_[i].out_degree(),
-        [](const std::tuple<gbbs::uintE, typename GraphType::weight_type>& u,
-           const std::tuple<gbbs::uintE, typename GraphType::weight_type>& v) {
-          return std::get<0>(u) < std::get<0>(v);
-        });
-    return std::get<0>(*max_neighbor);
-  });
-
-  int64_t max_node =
-      neighbors.empty()
-          ? -1
-          : static_cast<int64_t>(parlay::reduce(parlay::make_slice(neighbors),
-                                                parlay::maxm<gbbs::uintE>()));
-
-  if (num_nodes_ != 0) {
-    // Note that `max_node` is the largest neighbor node id, not necessarily the
-    // largest node id overall (because there may exist isolated nodes). Thus
-    // the invariant is that, if a total node hint is given, it must be larger
-    // than the largest node id.
-    //
-    // The invariant that the total node hint is larger than the largest center
-    // node id is verified in Import.
-    if (num_nodes_ < max_node + 1) {
-      return absl::FailedPreconditionError(
-          "Total number of nodes provided to PrepareImport does not match the "
-          "actual number of nodes.");
-    }
-  } else {
-    EnsureSize(max_node + 1);
-  }
 
   // Set all node ids to the correct final value, because `EnsureSize` uses
   // temporary placeholder node ids.
@@ -363,12 +378,12 @@ absl::Status GbbsGraphBase<GraphType>::FinishImport() {
 }
 
 template <typename GraphType>
-GraphType* GbbsGraphBase<GraphType>::Graph() const {
+GraphType* GbbsOutEdgesOnlyGraph<GraphType>::Graph() const {
   return graph_.get();
 }
 
 template <typename GraphType>
-bool GbbsGraphBase<GraphType>::MaybeClearNodeWeights() {
+bool GbbsOutEdgesOnlyGraph<GraphType>::MaybeClearNodeWeights() {
   
   auto has_default_node_weight = parlay::delayed_seq<bool>(
       node_weights_.size(),
@@ -386,7 +401,7 @@ bool GbbsGraphBase<GraphType>::MaybeClearNodeWeights() {
 }
 
 template <typename GraphType>
-bool GbbsGraphBase<GraphType>::MaybeClearNodeParts() {
+bool GbbsOutEdgesOnlyGraph<GraphType>::MaybeClearNodeParts() {
   
   auto has_default_node_part_id = parlay::delayed_seq<bool>(
       node_parts_.size(),
@@ -404,12 +419,13 @@ bool GbbsGraphBase<GraphType>::MaybeClearNodeParts() {
 }
 
 template <typename GraphType>
-const std::vector<NodePartId>& GbbsGraphBase<GraphType>::GetNodeParts() const {
+const std::vector<NodePartId>& GbbsOutEdgesOnlyGraph<GraphType>::GetNodeParts()
+    const {
   return node_parts_;
 }
 
 template <typename GraphType>
-bool GbbsGraphBase<GraphType>::IsValidBipartiteGraph() const {
+bool GbbsOutEdgesOnlyGraph<GraphType>::IsValidBipartiteGraph() const {
   auto get_node_part = [&](gbbs::uintE i) {
     return i < node_parts_.size() ? node_parts_[i] : 0;
   };
@@ -435,6 +451,77 @@ bool GbbsGraphBase<GraphType>::IsValidBipartiteGraph() const {
   return parlay::reduce(
       valid_seq,
       parlay::make_monoid([](bool a, bool b) { return a && b; }, true));
+}
+
+template <typename Weight>
+absl::Status DirectedGbbsInOutEdgesGraph<Weight>::FinishImport() {
+  RETURN_IF_ERROR((GbbsOutEdgesOnlyGraph<gbbs::asymmetric_ptr_graph<
+                       gbbs::asymmetric_vertex, Weight>>::FinishImport()));
+  if (this->graph_ == nullptr) {
+    // This should never happen. The call to
+    // `GbbsOutEdgesOnlyGraph::FinishImport` should have created the graph.
+    return absl::InternalError("'graph_' is null");
+  }
+
+  in_edges_.resize(this->graph_->n);
+
+  
+  constexpr int kPerThreadBufferSize = 1024;
+
+  // in-edges buffer.
+  using Edge = std::tuple<gbbs::uintE, gbbs::uintE, Weight>;
+  graph_mining::in_memory::StreamingWriter<Edge> edge_buffer(
+      kPerThreadBufferSize);
+  parlay::parallel_for(0, this->graph_->n, [&](gbbs::uintE i) {
+    auto neighbors = this->graph_->get_vertex(i).out_neighbors();
+    neighbors.map(
+        [&](const gbbs::uintE& our_id, const gbbs::uintE& neighbor_id,
+            const Weight& weight) {
+          edge_buffer.Add({neighbor_id, our_id, weight});
+        },
+        /*parallel=*/false);
+  });
+
+  parlay::sequence<std::tuple<gbbs::uintE, gbbs::uintE, Weight>> edges =
+      graph_mining::in_memory::Flatten(edge_buffer.Build());
+  CHECK_EQ(edges.size(), this->graph_->m);
+  // TODO: Enable tuples containing gbbs::uintE to be correctly
+  // compared using std::less, so that the custom comparator shown below is
+  // not required.
+  parlay::sample_sort_inplace(
+      parlay::make_slice(edges), [&](const Edge& left, const Edge& right) {
+        return std::tie(std::get<0>(left), std::get<1>(left)) <
+               std::tie(std::get<0>(right), std::get<1>(right));
+      });
+
+  auto edge_boundaries =
+      graph_mining::in_memory::GetBoundaryIndices<std::size_t>(
+          edges.size(), [&edges](std::size_t i, std::size_t j) {
+            return std::get<0>(edges[i]) == std::get<0>(edges[j]);
+          });
+  std::size_t num_edge_boundaries = edge_boundaries.size() - 1;
+  parlay::parallel_for(0, num_edge_boundaries, [&](std::size_t i) {
+    std::size_t start_edge_index = edge_boundaries[i];
+    std::size_t end_edge_index = edge_boundaries[i + 1];
+    std::size_t in_edges_size = end_edge_index - start_edge_index;
+
+    auto in_neighbors =
+        std::make_unique<std::tuple<gbbs::uintE, Weight>[]>(in_edges_size);
+    for (std::size_t j = 0; j < in_edges_size; ++j) {
+      in_neighbors[j] = {std::get<1>(edges[start_edge_index + j]),
+                         std::get<2>(edges[start_edge_index + j])};
+    }
+
+    gbbs::uintE center_node_id = std::get<0>(edges[start_edge_index]);
+    in_edges_[center_node_id] = std::move(in_neighbors);
+    auto& center_node = this->graph_->vertices[center_node_id];
+
+    // `id`, `out_deg`, and `out_nghs` are all set by FinishImport. We only need
+    // to adjust `in_deg` and `in_nghs`.
+    center_node.in_deg = in_edges_size;
+    center_node.in_nghs = in_edges_[center_node_id].get();
+  });
+  return absl::OkStatus();
 }
 
 }  // namespace graph_mining::in_memory

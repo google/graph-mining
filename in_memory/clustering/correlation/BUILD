@@ -12,8 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-load("@com_google_protobuf//:protobuf.bzl", "py_proto_library")
-load("@rules_proto//proto:defs.bzl", "proto_library")
+load("@com_google_protobuf//bazel:cc_proto_library.bzl", "cc_proto_library")
+load("@com_google_protobuf//bazel:proto_library.bzl", "proto_library")
+load("@com_google_protobuf//bazel:py_proto_library.bzl", "py_proto_library")
 
 package(
         default_visibility = ["//visibility:public"],
@@ -41,6 +42,9 @@ cc_library(
         "@com_github_gbbs//gbbs:macros",
         "@com_github_gbbs//gbbs:vertex",
         "@com_github_gbbs//gbbs:vertex_subset",
+        "@com_google_absl//absl/base:core_headers",
+        "@com_google_absl//absl/base:nullability",
+        "@com_google_absl//absl/log:absl_check",
         "@com_google_absl//absl/log:absl_log",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/status:statusor",
@@ -76,12 +80,22 @@ cc_library(
         "@com_github_gbbs//gbbs:bridge",
         "@com_github_gbbs//gbbs:graph",
         "@com_github_gbbs//gbbs:macros",
+        "@com_github_gbbs//gbbs:vertex",
+        "@com_google_absl//absl/base:core_headers",
+        "@com_google_absl//absl/container:flat_hash_map",
         "@com_google_absl//absl/flags:flag",
         "@com_google_absl//absl/log:absl_check",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/status:statusor",
+        "@com_google_absl//absl/strings",
         "@com_google_absl//absl/types:optional",
+        "@com_google_absl//absl/types:span",
+        "@parlaylib//parlay:delayed_sequence",
+        "@parlaylib//parlay:monoid",
         "@parlaylib//parlay:parallel",
+        "@parlaylib//parlay:primitives",
+        "@parlaylib//parlay:sequence",
+        "@parlaylib//parlay:slice",
     ],
 )
 
@@ -92,7 +106,7 @@ proto_library(
 
 py_proto_library(
     name = "correlation_py_pb2",
-    srcs = ["correlation.proto"],
+    deps = [":correlation_proto"],
 )
 
 cc_proto_library(
@@ -106,12 +120,23 @@ cc_library(
     hdrs = ["parallel_modularity.h"],
     deps = [
         ":parallel_correlation",
+        ":parallel_correlation_util",
         "//in_memory:status_macros",
         "//in_memory/clustering:config_cc_proto",
+        "//in_memory/clustering:gbbs_graph",
         "//in_memory/clustering:in_memory_clusterer",
+        "//in_memory/clustering:types",
+        "//in_memory/parallel:parallel_sequence_ops",
+        "//in_memory/parallel:scheduler",
+        "@com_github_gbbs//gbbs:graph",
+        "@com_github_gbbs//gbbs:macros",
+        "@com_github_gbbs//gbbs:vertex",
+        "@com_google_absl//absl/base:core_headers",
+        "@com_google_absl//absl/base:nullability",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/status:statusor",
-        "@com_google_absl//absl/types:optional",
+        "@com_google_absl//absl/strings:str_format",
+        "@parlaylib//parlay:parallel",
     ],
     alwayslink = 1,
 )

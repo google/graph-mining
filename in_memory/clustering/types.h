@@ -24,7 +24,9 @@ using NodeId = int64_t;
 #else
 using NodeId = int32_t;
 #endif
-using Clustering = std::vector<std::vector<NodeId>>;
+
+using ClusterContents = std::vector<NodeId>;
+using Clustering = std::vector<ClusterContents>;
 
 using NodePartId = int32_t;
 

@@ -15,20 +15,33 @@
 #include "in_memory/clustering/test_utils.h"
 
 #include <cmath>
-#include <cstddef>
 #include <cstdint>
 #include <memory>
 #include <numeric>
 #include <vector>
 
+#include "gmock/gmock.h"
+#include "gtest/gtest.h"
 #include "absl/container/flat_hash_set.h"
 #include "absl/log/absl_check.h"
-#include "absl/types/optional.h"
+#include "absl/log/absl_log.h"
+#include "absl/log/log.h"
+#include "absl/status/statusor.h"
+#include "absl/strings/str_cat.h"
 #include "in_memory/clustering/graph.h"
 #include "in_memory/clustering/graph_utils.h"
 #include "in_memory/clustering/in_memory_clusterer.h"
+#include "in_memory/clustering/types.h"
+#include "in_memory/parallel/parallel_sequence_ops.h"
+#include "in_memory/status_macros.h"
 
 namespace graph_mining::in_memory {
+
+using ::graph_mining::in_memory::OutputIndicesById;
+using ::testing::AllOf;
+using ::testing::Each;
+using ::testing::Ge;
+using ::testing::Lt;
 
 void AddUndirectedCliqueToGraph(int32_t size, int32_t initial_n,
                                 SimpleUndirectedGraph* graph) {
@@ -90,4 +103,24 @@ double ComputeClusterModularity(const absl::flat_hash_set<NodeId>& cluster,
   }
   return cluster_modularity / pow(cluster.size(), scale_power);
 }
+
+absl::StatusOr<Clustering> Cluster(
+    const InMemoryClusterer& clusterer,
+    const graph_mining::in_memory::ClustererConfig& config,
+    InMemoryClustererMethod clusterer_method, const int num_nodes) {
+  switch (clusterer_method) {
+    case InMemoryClustererMethod::kVectorOfClusters: {
+      return clusterer.Cluster(config);
+    }
+    case InMemoryClustererMethod::kVectorOfClusterIds: {
+      ASSIGN_OR_RETURN(std::vector<NodeId> cluster_ids,
+                       clusterer.ClusterAndReturnClusterIds(config));
+      EXPECT_THAT(cluster_ids, Each(AllOf(Ge(0), Lt(num_nodes))));
+      return OutputIndicesById<NodeId, NodeId>(cluster_ids);
+    }
+  }
+  ABSL_LOG(FATAL) << "Unsupported clusterer method: "
+                  << absl::StrCat(clusterer_method);
+}
+
 }  // namespace graph_mining::in_memory

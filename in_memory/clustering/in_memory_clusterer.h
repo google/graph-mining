@@ -22,6 +22,7 @@
 #include <utility>
 #include <vector>
 
+#include "absl/base/nullability.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "in_memory/clustering/config.pb.h"
@@ -60,8 +61,8 @@ class InMemoryClusterer {
     //
     // This is an optional step in the graph building process. When called, this
     // may enable subclass-specific optimizations. For an example of the
-    // lock-free graph building optimization for GbbsGraphBase, see
-    // GbbsGraphBase::PrepareImport.
+    // lock-free graph building optimization for GbbsOutEdgesOnlyGraph, see
+    // GbbsOutEdgesOnlyGraph::PrepareImport.
     //
     // `num_nodes` should be the exact number of nodes in the input graph. When
     // the condition is violated, the behavior is defined by each subclass.
@@ -79,8 +80,7 @@ class InMemoryClusterer {
     // If this interface is not convenient, consider either using NodeImporter
     // or loading your graph into a SimpleUndirectedGraph followed by
     // CopyGraph().
-    virtual absl::Status Import(
-        AdjacencyList adjacency_list) = 0;
+    virtual absl::Status Import(AdjacencyList adjacency_list) = 0;
 
     // Finalizes the graph after all calls to Import are complete.
     //
@@ -115,6 +115,20 @@ class InMemoryClusterer {
   // get a canonical clustering representation.
   virtual absl::StatusOr<Clustering> Cluster(
       const graph_mining::in_memory::ClustererConfig& config) const = 0;
+
+  // Similar to Cluster(), but returns the clustering in a different format,
+  // namely a vector with length equal to the number of nodes in the graph,
+  // where the i-th element is the ID of the cluster ID to which node i belongs.
+  // The returned cluster IDs must be in the range [0, ..., number of nodes in
+  // the graph - 1].
+  virtual absl::StatusOr<std::vector<NodeId>> ClusterAndReturnClusterIds(
+      const graph_mining::in_memory::ClustererConfig& config) const {
+    // TODO: b/397376625 - Replace this with an actual implementation that
+    // invokes the Cluster() method and converts the result to the desired
+    // format.
+    return absl::UnimplementedError(
+        "'ClusterAsClusterIdSequence' is not implemented");
+  }
 
   // Same as above, except that it returns a sequence of flat clusterings. The
   // last element of the sequence is the final clustering. This is primarily

@@ -19,8 +19,10 @@
 #include <memory>
 
 #include "absl/container/flat_hash_set.h"
+#include "absl/status/statusor.h"
 #include "in_memory/clustering/graph.h"
 #include "in_memory/clustering/in_memory_clusterer.h"
+#include "in_memory/clustering/types.h"
 
 namespace graph_mining::in_memory {
 
@@ -70,6 +72,31 @@ double ComputeClusterModularity(const absl::flat_hash_set<NodeId>& cluster,
                                 const SimpleUndirectedGraph& graph,
                                 double resolution = 1.0,
                                 double scale_power = 0.0);
+
+// Enum used for choosing which method of `InMemoryClusterer` to use for
+// clustering a graph.
+enum class InMemoryClustererMethod {
+  kVectorOfClusters,   // Use InMemoryClusterer::Cluster().
+  kVectorOfClusterIds  // Use InMemoryClusterer::ClusterAndReturnClusterIds().
+};
+
+// Runs the clustering algorithm of the given clusterer, using the given config
+// and the method specified by clusterer_method. num_nodes should be the number
+// of nodes in the input graph.
+//
+// When clusterer_method is kVectorOfClusters, the function simply returns the
+// result of the Cluster() method. The argument num_nodes is ignored in that
+// case.
+//
+// When clusterer_method is kVectorOfClusterIds, the function invokes the
+// ClusterAndReturnClusterIds() method and converts the result to a Clustering
+// before returning it. Moreover, it checks via EXPECT statements that all
+// cluster IDs returned by ClusterAndReturnClusterIds() are in the range [0,
+// num_nodes - 1].
+absl::StatusOr<Clustering> Cluster(
+    const InMemoryClusterer& clusterer,
+    const graph_mining::in_memory::ClustererConfig& config,
+    InMemoryClustererMethod clusterer_method, int num_nodes);
 
 }  // namespace graph_mining::in_memory
 

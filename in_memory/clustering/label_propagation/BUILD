@@ -20,36 +20,45 @@ package(
         default_visibility = ["//visibility:public"],
 )
 
-cc_library(
-    name = "connected_components_graph",
-    hdrs = ["connected_components_graph.h"],
-    deps = [
-        "//in_memory:status_macros",
-        "//in_memory/clustering:in_memory_clusterer",
-        "//in_memory/connected_components:asynchronous_union_find",
-        "@com_google_absl//absl/base:core_headers",
-        "@com_google_absl//absl/status",
-        "@com_google_absl//absl/status:statusor",
-        "@com_google_absl//absl/strings",
-        "@com_google_absl//absl/types:span",
-        "@parlaylib//parlay:sequence",
-    ],
-)
+licenses(["notice"])
 
 cc_library(
-    name = "connected_components",
-    srcs = ["connected_components.cc"],
-    hdrs = ["connected_components.h"],
+    name = "label_propagation",
+    srcs = ["label_propagation.cc"],
+    hdrs = ["label_propagation.h"],
     deps = [
-        ":connected_components_graph",
+        ":label_propagation_cc_proto",
         "//in_memory:status_macros",
+        "//in_memory/clustering:clustering_utils",
+        "//in_memory/clustering:config_cc_proto",
+        "//in_memory/clustering:gbbs_graph",
         "//in_memory/clustering:in_memory_clusterer",
-        "//in_memory/parallel:parallel_sequence_ops",
+        "//in_memory/clustering:types",
         "//in_memory/parallel:scheduler",
-        "@com_google_absl//absl/base:nullability",
+        "@com_github_gbbs//benchmarks/GraphColoring/Hasenplaugh14:GraphColoring",
+        "@com_github_gbbs//gbbs:bridge",
+        "@com_github_gbbs//gbbs:graph",
+        "@com_github_gbbs//gbbs:macros",
+        "@com_github_gbbs//gbbs:vertex",
+        "@com_google_absl//absl/log",
+        "@com_google_absl//absl/log:absl_check",
+        "@com_google_absl//absl/log:absl_log",
         "@com_google_absl//absl/status:statusor",
         "@com_google_absl//absl/types:span",
+        "@parlaylib//parlay:delayed_sequence",
         "@parlaylib//parlay:parallel",
+        "@parlaylib//parlay:primitives",
+        "@parlaylib//parlay:sequence",
     ],
     alwayslink = 1,
+)
+
+proto_library(
+    name = "label_propagation_proto",
+    srcs = ["label_propagation.proto"],
+)
+
+cc_proto_library(
+    name = "label_propagation_cc_proto",
+    deps = [":label_propagation_proto"],
 )

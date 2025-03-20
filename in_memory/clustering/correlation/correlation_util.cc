@@ -24,8 +24,8 @@
 
 namespace graph_mining::in_memory {
 
-using NodeId = InMemoryClusterer::NodeId;
-using ClusterId = int32_t;
+using NodeId = ::graph_mining::in_memory::InMemoryClusterer::NodeId;
+using ClusterId = ::graph_mining::in_memory::InMemoryClusterer::NodeId;
 using std::vector;
 
 double CorrelationClusteringObjective(

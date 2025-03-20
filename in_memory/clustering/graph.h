@@ -87,6 +87,14 @@ class SimpleDirectedGraph : public InMemoryClusterer::Graph {
   virtual absl::Status SetEdgeWeight(NodeId from_node, NodeId to_node,
                                      double weight);
 
+  // Removes an edge from the graph. Returns:
+  //   - INVALID_ARGUMENT if any of the node ids is not in [0, NumNodes()).
+  //   - NOT_FOUND if the node ids are valid, but the edge does not exist.
+  //   - OK if the edge is removed.
+  // Calling RemoveEdge invalidates any iterators to the hash map of neighbors
+  // of from_node.
+  virtual absl::Status RemoveEdge(NodeId from_node, NodeId to_node);
+
   // Returns a hash map containing neighbors of a given node. Note that
   // the order of iteration may change after each edge insertion.
   const absl::flat_hash_map<NodeId, double>& Neighbors(NodeId id) const {
@@ -140,11 +148,12 @@ class SimpleDirectedGraph : public InMemoryClusterer::Graph {
   // if necessary.
   void EnsureSize(NodeId id);
 
-  // Returns true if the argument corresponds gives the id of an existing node.
-  bool HasNode(NodeId id) const { return id >= 0 && id < NumNodes(); }
+  // Returns INVALID_ARGUMENT iff the id does not correspond to an existing
+  // node.
+  absl::Status CheckNodeExists(NodeId id) const;
 
   // Returns INVALID_ARGUMENT iff id is negative.
-  absl::Status CheckNodeId(NodeId id) const;
+  absl::Status CheckNodeIdValid(NodeId id) const;
 
  private:
   // Returns a pointer to the weight of the edge between the given endpoints. If
@@ -184,6 +193,14 @@ class SimpleUndirectedGraph : public SimpleDirectedGraph {
 
   absl::Status AddEdge(NodeId from_node, NodeId to_node,
                        double weight) override;
+
+  // Removes an edge from the graph. Returns:
+  //   - INVALID_ARGUMENT if any of the node ids is not in [0, NumNodes()).
+  //   - NOT_FOUND if the node ids are valid, but the edge does not exist.
+  //   - OK if the edge is removed.
+  // Calling RemoveEdge invalidates any iterators to the hash map of neighbors
+  // of both from_node and to_node.
+  absl::Status RemoveEdge(NodeId from_node, NodeId to_node) override;
 
   absl::Status SetEdgeWeight(NodeId from_node, NodeId to_node,
                              double weight) override;

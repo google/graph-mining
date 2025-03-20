@@ -119,8 +119,8 @@ void SimpleDirectedGraph::SetNumNodes(NodeId num_nodes) {
 
 absl::Status SimpleDirectedGraph::AddEdge(NodeId from_node, NodeId to_node,
                                           double weight) {
-  RETURN_IF_ERROR(CheckNodeId(from_node));
-  RETURN_IF_ERROR(CheckNodeId(to_node));
+  RETURN_IF_ERROR(CheckNodeIdValid(from_node));
+  RETURN_IF_ERROR(CheckNodeIdValid(to_node));
 
   double* existing_weight = MutableEdgeWeight(from_node, to_node, weight);
   *existing_weight = std::max(*existing_weight, weight);
@@ -129,15 +129,27 @@ absl::Status SimpleDirectedGraph::AddEdge(NodeId from_node, NodeId to_node,
 
 absl::Status SimpleDirectedGraph::SetEdgeWeight(NodeId from_node,
                                                 NodeId to_node, double weight) {
-  RETURN_IF_ERROR(CheckNodeId(from_node));
-  RETURN_IF_ERROR(CheckNodeId(to_node));
+  RETURN_IF_ERROR(CheckNodeIdValid(from_node));
+  RETURN_IF_ERROR(CheckNodeIdValid(to_node));
   *MutableEdgeWeight(from_node, to_node, 0.0) = weight;
   return absl::OkStatus();
 }
 
+absl::Status SimpleDirectedGraph::RemoveEdge(NodeId from_node, NodeId to_node) {
+  RETURN_IF_ERROR(CheckNodeExists(from_node));
+  RETURN_IF_ERROR(CheckNodeExists(to_node));
+
+  bool removed = adjacency_lists_[from_node].erase(to_node) > 0;
+
+  return removed ? absl::OkStatus()
+                 : absl::NotFoundError(absl::StrCat(
+                       "Edge not found: ", from_node, " -> ", to_node));
+}
+
 std::optional<double> SimpleDirectedGraph::EdgeWeight(NodeId from_node,
                                                       NodeId to_node) const {
-  if (!HasNode(from_node) || !HasNode(to_node)) return {};
+  if (!CheckNodeExists(from_node).ok() || !CheckNodeExists(to_node).ok())
+    return {};
   auto it = adjacency_lists_[from_node].find(to_node);
   if (it == adjacency_lists_[from_node].end())
     return {};
@@ -146,12 +158,12 @@ std::optional<double> SimpleDirectedGraph::EdgeWeight(NodeId from_node,
 }
 
 double SimpleDirectedGraph::NodeWeight(NodeId id) const {
-  ABSL_CHECK_OK(CheckNodeId(id));
+  ABSL_CHECK_OK(CheckNodeIdValid(id));
   return id < node_weights_.size() ? node_weights_[id] : kDefaultNodeWeight;
 }
 
 int32_t SimpleDirectedGraph::NodePart(NodeId id) const {
-  ABSL_CHECK_OK(CheckNodeId(id));
+  ABSL_CHECK_OK(CheckNodeIdValid(id));
   return id < node_parts_.size() ? node_parts_[id] : kDefaultNodePartId;
 }
 
@@ -163,7 +175,7 @@ bool SimpleDirectedGraph::IsUnipartite() const {
 }
 
 double SimpleDirectedGraph::WeightedOutDegree(NodeId id) const {
-  ABSL_CHECK_OK(CheckNodeId(id));
+  ABSL_CHECK_OK(CheckNodeIdValid(id));
   double result = 0;
   for (const auto& [_, weight] : Neighbors(id)) {
     result += weight;
@@ -172,7 +184,7 @@ double SimpleDirectedGraph::WeightedOutDegree(NodeId id) const {
 }
 
 void SimpleDirectedGraph::SetNodeWeight(NodeId id, double weight) {
-  ABSL_CHECK_OK(CheckNodeId(id));
+  ABSL_CHECK_OK(CheckNodeIdValid(id));
   if (lock_free_import_) {
     // In the lock-free import logic, adjacency_lists_ and node_weights_ are
     // preallocated to the same size. Thus checking against the size of
@@ -188,7 +200,7 @@ void SimpleDirectedGraph::SetNodeWeight(NodeId id, double weight) {
 }
 
 void SimpleDirectedGraph::SetNodePart(NodeId id, int32_t part) {
-  ABSL_CHECK_OK(CheckNodeId(id));
+  ABSL_CHECK_OK(CheckNodeIdValid(id));
   if (lock_free_import_) {
     // In the lock-free import logic, adjacency_lists_ and node_parts_ are
     // preallocated to the same size. Thus checking against the size of
@@ -221,14 +233,24 @@ void SimpleDirectedGraph::EnsureSize(NodeId id) {
   }
 }
 
-absl::Status SimpleDirectedGraph::CheckNodeId(NodeId id) const {
+absl::Status SimpleDirectedGraph::CheckNodeIdValid(NodeId id) const {
   if (id < 0)
     return absl::InvalidArgumentError(absl::StrCat("id < 0: id = ", id));
   return absl::OkStatus();
 }
 
+absl::Status SimpleDirectedGraph::CheckNodeExists(NodeId id) const {
+  if (id >= adjacency_lists_.size()) {
+    return absl::InvalidArgumentError(
+        absl::StrCat("id: ", id, " >= #nodes: ", adjacency_lists_.size()));
+  } else if (id < 0) {
+    return absl::InvalidArgumentError(absl::StrCat("id < 0: id = ", id));
+  }
+  return absl::OkStatus();
+}
+
 absl::Status SimpleDirectedGraph::ClearNeighbors(NodeId id) {
-  RETURN_IF_ERROR(CheckNodeId(id));
+  RETURN_IF_ERROR(CheckNodeIdValid(id));
   if (adjacency_lists_.size() <= id) {
     return absl::InvalidArgumentError(absl::StrCat(
         "id: ", id, " >= adjacency_lists_ size: ", adjacency_lists_.size()));
@@ -296,6 +318,26 @@ absl::Status SimpleUndirectedGraph::AddEdge(NodeId from_node, NodeId to_node,
   }
 
   return absl::OkStatus();
+}
+
+absl::Status SimpleUndirectedGraph::RemoveEdge(NodeId from_node,
+                                               NodeId to_node) {
+  if (!per_node_lock_.empty()) {
+    return absl::FailedPreconditionError(
+        "RemoveEdge called before FinishImport.");
+  }
+  RETURN_IF_ERROR(CheckNodeExists(from_node));
+  RETURN_IF_ERROR(CheckNodeExists(to_node));
+  absl::Status status = SimpleDirectedGraph::RemoveEdge(from_node, to_node);
+
+  ABSL_CHECK(status.ok() || status.code() == absl::StatusCode::kNotFound);
+  const bool removed = status.ok();
+  if (removed && from_node != to_node) {
+    ABSL_CHECK_OK(SimpleDirectedGraph::RemoveEdge(to_node, from_node));
+  }
+  return removed ? absl::OkStatus()
+                 : absl::NotFoundError(absl::StrCat(
+                       "Edge not found: ", from_node, " <-> ", to_node));
 }
 
 absl::Status SimpleUndirectedGraph::SetEdgeWeight(NodeId from_node,

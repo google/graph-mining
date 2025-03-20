@@ -15,18 +15,21 @@
 #ifndef THIRD_PARTY_GRAPH_MINING_IN_MEMORY_CLUSTERING_CORRELATION_PARALLEL_CORRELATION_UTIL_H_
 #define THIRD_PARTY_GRAPH_MINING_IN_MEMORY_CLUSTERING_CORRELATION_PARALLEL_CORRELATION_UTIL_H_
 
-#include <algorithm>
+#include <array>
+#include <cstddef>
 #include <memory>
 #include <optional>
 #include <utility>
 #include <vector>
 
+#include "absl/base/attributes.h"
 #include "absl/flags/declare.h"
 #include "absl/log/absl_check.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
-#include "absl/types/optional.h"
 #include "gbbs/graph.h"
+#include "gbbs/macros.h"
+#include "gbbs/vertex.h"
 #include "in_memory/clustering/config.pb.h"
 #include "in_memory/clustering/in_memory_clusterer.h"
 #include "in_memory/clustering/types.h"
@@ -52,7 +55,7 @@ class ClusteringHelper {
         cluster_ids_(num_nodes),
         cluster_sizes_(num_nodes, 0),
         clusterer_config_(clusterer_config),
-        node_weights_(num_nodes, 1) {
+        node_weights_(num_nodes, 1.0) {
     if (clusterer_config_.correlation_clusterer_config()
             .use_bipartite_objective()) {
       ABSL_CHECK_EQ(node_parts.size(), num_nodes);
@@ -61,7 +64,7 @@ class ClusteringHelper {
       partitioned_cluster_weights_ =
           std::vector<std::array<double, 2>>(num_nodes, {0, 0});
     } else {
-      cluster_weights_ = std::vector<double>(num_nodes, 0);
+      cluster_weights_ = std::vector<double>(num_nodes, 0.0);
     }
     SetClustering(clustering);
   }
@@ -85,7 +88,7 @@ class ClusteringHelper {
       partitioned_cluster_weights_ =
           std::vector<std::array<double, 2>>(num_nodes, {0, 0});
     } else {
-      cluster_weights_ = std::vector<double>(num_nodes, 0);
+      cluster_weights_ = std::vector<double>(num_nodes, 0.0);
     }
     SetClustering(clustering);
   }
@@ -107,78 +110,92 @@ class ClusteringHelper {
         node_parts_(std::move(node_parts)),
         partitioned_cluster_weights_(std::move(partitioned_cluster_weights)) {}
 
-  // Contains objective change, which includes:
-  //  * A vector of tuples, indicating the objective change for the
-  //    corresponding cluster id if a node is moved to said cluster.
-  //  * The objective change of a node moving out of its current cluster
-  struct ObjectiveChange {
-    std::vector<std::tuple<ClusterId, double>> move_to_change;
-    double move_from_change;
-  };
-
-  // Moves node i from its current cluster to a new cluster moves[i].
-  // If moves[i] == null optional, then the corresponding node will not be
-  // moved. A move to the number of nodes in the graph means that a new cluster
-  // is created. The size of moves should be equal to num_nodes_.
-  // Returns an array where the entry is true if the cluster corresponding to
-  // the index was modified, and false if the cluster corresponding to the
-  // index was not modified. Nodes may not necessarily move if the best move
-  // provided is to stay in their existing cluster.
+  // Moves each node i from its current cluster to a new cluster moves[i].
+  // If moves[i] == nullopt, then the corresponding node will not be moved. A
+  // move to the number of nodes in the graph means that a new cluster is
+  // created. The size of moves should be equal to num_nodes_. Returns an array
+  // of size num_nodes_ where the entry is true if the cluster corresponding to
+  // the index was modified, and false if the cluster corresponding to the index
+  // was not modified.
   std::unique_ptr<bool[]> MoveNodesToCluster(
       const std::vector<std::optional<ClusterId>>& moves);
 
   // Asynchronously moves node moving_node from its current cluster to a new
-  // cluster given by move_cluster_id. Consistency guarantees are relaxed, in
+  // cluster given by target_cluster_id. Consistency guarantees are relaxed, in
   // that cluster weights may not always accurately reflect the actual
   // clusters that vertices participate in.
   void MoveNodeToClusterAsync(InMemoryClusterer::NodeId moving_node,
-                              ClusterId move_cluster_id);
+                              ClusterId target_cluster_id);
 
   // Asynchronously moves a set of nodes moving_nodes, which must all be in the
-  // same initial cluster, to a new cluster given by move_cluster_id.
+  // same initial cluster, to a new cluster given by target_cluster_id.
   // Consistency guarantees are relaxed, in that cluster weights may not always
   // accurately reflect the actual clusters that vertices participate in.
   void MoveNodesToClusterAsync(const std::vector<gbbs::uintE>& moving_nodes,
-                               ClusterId move_cluster_id);
+                               ClusterId target_cluster_id);
 
-  // Returns a tuple of:
-  //  * The best cluster to move all of the nodes in moving_nodes to according
-  //    to the correlation clustering objective function. An id equal to the
-  //    number of nodes in the graph means create a new cluster.
-  //  * The change in objective function achieved by that move. May be positive
-  //    or negative.
-  std::tuple<ClusteringHelper::ClusterId, double> BestMove(
-      gbbs::symmetric_ptr_graph<gbbs::symmetric_vertex, float>& graph,
+  // Struct holding information about a potential move of a node (or a set of
+  // nodes) to a different cluster.
+  struct ClusterMove {
+    // Cluster to which the node(s) will be moved if the move is performed.
+    ClusteringHelper::ClusterId target_cluster_id;
+
+    // Change in objective function if the move is performed.
+    double objective_change = 0.0;
+  };
+
+  // Returns the best move for all nodes in moving_nodes, according to the
+  // correlation clustering objective function. If the best move is to create a
+  // new cluster instead of moving to an existing one, a special cluster ID is
+  // returned, defined as:
+  //  - the number of nodes in the graph if
+  //    use_auxiliary_array_for_temp_cluster_id is false; or
+  //  - 2 * the number of nodes in the graph if
+  //    use_auxiliary_array_for_temp_cluster_id is true.
+  ClusterMove BestMove(
+      const gbbs::symmetric_ptr_graph<gbbs::symmetric_vertex, float>& graph,
       const std::vector<gbbs::uintE>& moving_nodes);
 
-  // Returns a tuple of:
-  //  * The best cluster to move moving_node to according to the correlation
-  //    clustering objective function. An id equal to the number of nodes in the
-  //    graph means create a new cluster.
-  //  * The change in objective function achieved by that move. May be positive
-  //    or negative.
-  std::tuple<ClusterId, double> BestMove(
-      gbbs::symmetric_ptr_graph<gbbs::symmetric_vertex, float>& graph,
-      InMemoryClusterer::NodeId moving_node);
-
-  // Compute the objective of the current clustering. See correlation.proto for
+  // Computes the objective of the current clustering. See correlation.proto for
   // details on how it's computed.
   double ComputeObjective(
-      gbbs::symmetric_ptr_graph<gbbs::symmetric_vertex, float>& graph);
+      const gbbs::symmetric_ptr_graph<gbbs::symmetric_vertex, float>& graph)
+      const;
 
-  const std::vector<ClusterId>& ClusterIds() const { return cluster_ids_; }
+  // Accessor for the ClustererConfig passed to the constructor.
+  const graph_mining::in_memory::ClustererConfig& ClustererConfig() const
+      ABSL_ATTRIBUTE_LIFETIME_BOUND {
+    return clusterer_config_;
+  }
 
-  const std::vector<ClusterId>& ClusterSizes() const { return cluster_sizes_; }
+  const std::vector<ClusterId>& ClusterIds() const
+      ABSL_ATTRIBUTE_LIFETIME_BOUND {
+    return cluster_ids_;
+  }
 
-  const std::vector<double>& ClusterWeights() const { return cluster_weights_; }
+  const std::vector<ClusterId>& ClusterSizes() const
+      ABSL_ATTRIBUTE_LIFETIME_BOUND {
+    return cluster_sizes_;
+  }
 
-  const std::vector<NodePartId>& NodeParts() const { return node_parts_; }
+  const std::vector<double>& ClusterWeights() const
+      ABSL_ATTRIBUTE_LIFETIME_BOUND {
+    return cluster_weights_;
+  }
 
-  const std::vector<std::array<double, 2>>& PartitionedClusterWeights() const {
+  const std::vector<NodePartId>& NodeParts() const
+      ABSL_ATTRIBUTE_LIFETIME_BOUND {
+    return node_parts_;
+  }
+
+  const std::vector<std::array<double, 2>>& PartitionedClusterWeights() const
+      ABSL_ATTRIBUTE_LIFETIME_BOUND {
     return partitioned_cluster_weights_;
   }
 
-  const std::vector<double>& NodeWeights() const { return node_weights_; }
+  const std::vector<double>& NodeWeights() const ABSL_ATTRIBUTE_LIFETIME_BOUND {
+    return node_weights_;
+  }
 
   // Returns the weight of the given node, or 1.0 if it has not been set.
   double NodeWeight(InMemoryClusterer::NodeId id) const;
@@ -187,8 +204,8 @@ class ClusteringHelper {
   // weights, resets the saved clustering state in the helper (including
   // cluster sizes and weights) to match the inputted clustering.
   void ResetClustering(const std::vector<ClusterId>& cluster_ids,
-                       const std::vector<double>& node_weights,
-                       const std::vector<NodePartId>& node_parts);
+                       std::vector<double> node_weights,
+                       std::vector<NodePartId> node_parts);
 
   // Unfolds cluster id space from N (the number of nodes) to N*2 if
   // CorrelationClustererConfig.use_auxiliary_array_for_temp_cluster_id is true.
@@ -196,7 +213,7 @@ class ClusteringHelper {
 
   // Folds temporary new cluster ids back to the original cluster id space.
   // Moved cluster ids are recorded in moved_clusters.
-  void MaybeFoldClusterIdSpace(bool* moved_clusters);
+  void MaybeFoldClusterIdSpace(bool moved_clusters[]);
 
  private:
   std::size_t num_nodes_;
@@ -208,7 +225,7 @@ class ClusteringHelper {
   std::vector<NodePartId> node_parts_;
   std::vector<std::array<double, 2>> partitioned_cluster_weights_;
 
-  // Initialize cluster_ids_ and cluster_sizes_ given an initial clustering.
+  // Initializes cluster_ids_ and cluster_sizes_ given an initial clustering.
   // If clustering is empty, initialize singleton clusters.
   // num_nodes_ must be correctly set before calling this function.
   void SetClustering(const InMemoryClusterer::Clustering& clustering);
@@ -224,8 +241,9 @@ absl::StatusOr<graph_mining::in_memory::GraphWithWeights> CompressGraph(
     const ClusteringHelper& helper);
 
 // Validates CorrelationClustererConfig configuration.
-absl::Status ValidateCorrelationClustererConfigConfig(
-    const graph_mining::in_memory::CorrelationClustererConfig& config);
+absl::Status ValidateCorrelationClustererConfig(
+    const graph_mining::in_memory::CorrelationClustererConfig& config,
+    size_t num_nodes);
 
 // Metadata used for maintaining the relation regarding node ids, cluster ids,
 // and partition information between the current graph and the compressed graph
@@ -272,7 +290,7 @@ struct BipartiteGraphCompressionMetadata {
 };
 
 // Prepares metadata in order to call CompressGraph for the bipartite case.
-// Speficially, the metadata produced by this function, when applied to the
+// Specifically, the metadata produced by this function, when applied to the
 // graph compression logic, ensures that nodes sharing the same cluster id but
 // from different parts are not merged.
 //

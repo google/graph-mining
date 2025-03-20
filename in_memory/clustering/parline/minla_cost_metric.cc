@@ -23,6 +23,7 @@
 
 #include "absl/log/absl_log.h"
 #include "in_memory/clustering/gbbs_graph.h"
+#include "in_memory/clustering/parline/minla.pb.h"
 
 namespace graph_mining::in_memory {
 namespace {

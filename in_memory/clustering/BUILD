@@ -12,8 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-load("@com_google_protobuf//:protobuf.bzl", "py_proto_library")
-load("@rules_proto//proto:defs.bzl", "proto_library")
+load("@com_google_protobuf//bazel:cc_proto_library.bzl", "cc_proto_library")
+load("@com_google_protobuf//bazel:proto_library.bzl", "proto_library")
+load("@com_google_protobuf//bazel:py_proto_library.bzl", "py_proto_library")
 
 package(
     default_visibility = ["//visibility:public"],
@@ -46,6 +47,7 @@ cc_library(
         ":dendrogram",
         ":types",
         "//in_memory:status_macros",
+        "@com_google_absl//absl/base:nullability",
         "@com_google_absl//absl/memory",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/status:statusor",
@@ -60,19 +62,22 @@ cc_library(
     deps = [
         ":in_memory_clusterer",
         ":types",
+        "//in_memory:status_macros",
+        "//in_memory/parallel:parallel_sequence_ops",
         "//in_memory/parallel:scheduler",
+        "//in_memory/parallel:streaming_writer",
         "//utils/status:thread_safe_status",
         "@com_github_gbbs//gbbs:bridge",
         "@com_github_gbbs//gbbs:graph",
         "@com_github_gbbs//gbbs:macros",
         "@com_github_gbbs//gbbs:vertex",
-        "@com_google_absl//absl/container:flat_hash_map",
+        "@com_google_absl//absl/log:check",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/status:statusor",
         "@com_google_absl//absl/strings",
         "@com_google_absl//absl/synchronization",
-        "@com_google_absl//absl/types:optional",
         "@parlaylib//parlay:parallel",
+        "@parlaylib//parlay:sequence",
     ],
 )
 
@@ -134,6 +139,10 @@ cc_library(
         "@com_google_absl//absl/status:statusor",
         "@com_google_absl//absl/strings",
         "@com_google_absl//absl/types:span",
+        "@parlaylib//parlay:delayed_sequence",
+        "@parlaylib//parlay:parallel",
+        "@parlaylib//parlay:primitives",
+        "@parlaylib//parlay:slice",
     ],
 )
 
@@ -190,7 +199,7 @@ proto_library(
 
 py_proto_library(
     name = "undirected_converter_graph_py_pb2",
-    srcs = ["undirected_converter_graph.proto"],
+    deps = [":undirected_converter_graph_proto"],
 )
 
 cc_proto_library(
@@ -229,20 +238,17 @@ proto_library(
     srcs = ["config.proto"],
     deps = [
         "//in_memory/clustering/affinity:affinity_proto",
+        "//in_memory/clustering/clique_container:clique_container_proto",
         "//in_memory/clustering/coconductance:coconductance_proto",
         "//in_memory/clustering/correlation:correlation_proto",
         "//in_memory/clustering/correlation:modularity_proto",
+        "//in_memory/clustering/label_propagation:label_propagation_proto",
         "//in_memory/clustering/parline:parline_proto",
     ],
 )
 
 cc_proto_library(
     name = "config_cc_proto",
-    deps = [":config_proto"],
-)
-
-java_proto_library(
-    name = "config_java_proto",
     deps = [":config_proto"],
 )
 
@@ -267,9 +273,16 @@ cc_library(
         ":graph",
         ":graph_utils",
         ":in_memory_clusterer",
+        ":types",
+        "//in_memory:status_macros",
+        "//in_memory/parallel:parallel_sequence_ops",
         "@com_google_absl//absl/container:flat_hash_set",
+        "@com_google_absl//absl/log",
         "@com_google_absl//absl/log:absl_check",
-        "@com_google_absl//absl/types:optional",
+        "@com_google_absl//absl/log:absl_log",
+        "@com_google_absl//absl/status:statusor",
+        "@com_google_absl//absl/strings",
+        "@com_google_googletest//:gtest",
     ],
 )
 

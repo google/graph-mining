@@ -14,12 +14,25 @@
 
 #include "in_memory/clustering/correlation/parallel_modularity.h"
 
-#include <cstdint>
+#include <cstddef>
 #include <utility>
 #include <vector>
 
+#include "absl/status/status.h"
 #include "absl/status/statusor.h"
+#include "absl/strings/str_format.h"
+#include "gbbs/graph.h"
+#include "gbbs/macros.h"
+#include "gbbs/vertex.h"
+#include "in_memory/clustering/correlation/parallel_correlation.h"
+#include "in_memory/clustering/correlation/parallel_correlation_util.h"
+#include "in_memory/clustering/gbbs_graph.h"
+#include "in_memory/clustering/in_memory_clusterer.h"
+#include "in_memory/clustering/types.h"
+#include "in_memory/parallel/parallel_sequence_ops.h"
+#include "in_memory/parallel/scheduler.h"
 #include "in_memory/status_macros.h"
+#include "parlay/parallel.h"
 
 namespace graph_mining::in_memory {
 
@@ -27,23 +40,38 @@ namespace {
 
 using graph_mining::in_memory::ClustererConfig;
 
-struct NodeWeightsTotalWeight {
-  std::vector<double> node_weights;
-  double total_node_weight;
+struct EdgeWeightStats {
+  // The total weight of edges incident to each node.
+  std::vector<double> weighted_node_degrees;
+  // Sum of all edge weights.
+  double total_edge_weight;
 };
 
-NodeWeightsTotalWeight GetNodeWeightsAndTotalWeight(
-    gbbs::symmetric_ptr_graph<gbbs::symmetric_vertex, float>* graph) {
-  double total_node_weight = 0.0;
-  std::vector<double> node_weights(graph->n, 0);
-  for (std::size_t i = 0; i < graph->n; i++) {
+// Computes the stats of the edge weights in the graph. Returns an error if any
+// edge has a negative weight.
+absl::StatusOr<EdgeWeightStats> ComputeEdgeWeightStats(
+    const gbbs::symmetric_ptr_graph<gbbs::symmetric_vertex, float>& graph) {
+  double total_edge_weight = 0.0;
+  std::vector<double> weighted_node_degrees(graph.n, 0.0);
+  absl::Status status = absl::OkStatus();
+  for (std::size_t i = 0; i < graph.n; ++i) {
     auto map_weight = [&](gbbs::uintE vertex, gbbs::uintE neighbor,
-                          double weight) { node_weights[i] += weight; };
-    graph->get_vertex(i).out_neighbors().map(map_weight, false);
-
-    total_node_weight += node_weights[i];
+                          double edge_weight) {
+      if (edge_weight < 0.0) {
+        status = absl::InvalidArgumentError(
+            absl::StrFormat("An edge with negative weight %f was found between "
+                            "nodes %d and %d.",
+                            edge_weight, vertex, neighbor));
+      }
+      weighted_node_degrees[i] += edge_weight;
+    };
+    graph.get_vertex(i).out_neighbors().map(map_weight, /*parallel=*/false);
+    if (!status.ok()) {
+      return status;
+    }
+    total_edge_weight += weighted_node_degrees[i];
   }
-  return NodeWeightsTotalWeight{std::move(node_weights), total_node_weight};
+  return EdgeWeightStats{std::move(weighted_node_degrees), total_edge_weight};
 }
 
 }  // namespace
@@ -51,44 +79,91 @@ NodeWeightsTotalWeight GetNodeWeightsAndTotalWeight(
 absl::StatusOr<InMemoryClusterer::Clustering>
 ParallelModularityClusterer::Cluster(const ClustererConfig& config) const {
   
-  InMemoryClusterer::Clustering clustering(graph_.Graph()->n);
-
-  // Create all-singletons initial clustering
-  parlay::parallel_for(0, graph_.Graph()->n, [&](std::size_t i) {
-    clustering[i] = {static_cast<int32_t>(i)};
-  });
-
+  if (graph_.Graph() == nullptr) {
+    return absl::FailedPreconditionError(
+        "'Cluster' cannot be called before 'FinishImport' is called for the "
+        "graph");
+  }
+  if (graph_.Graph()->n == 0) return InMemoryClusterer::Clustering();
+  InMemoryClusterer::Clustering clustering =
+      AllSingletonsClustering(graph_.Graph()->n);
   RETURN_IF_ERROR(
       ParallelModularityClusterer::RefineClusters(config, &clustering));
-
   return clustering;
+}
+
+namespace {
+
+absl::StatusOr<ClusteringHelper> GetClusteringHelper(
+    const GbbsGraph& graph,
+    const InMemoryClusterer::Clustering& initial_clustering,
+    const ClustererConfig& clusterer_config) {
+  // Set modularity clustering config.
+  ClustererConfig modularity_config;
+  *modularity_config.mutable_correlation_clusterer_config() =
+      clusterer_config.modularity_clusterer_config().correlation_config();
+  ASSIGN_OR_RETURN(EdgeWeightStats edge_weight_stats,
+                   ComputeEdgeWeightStats(*graph.Graph()));
+  modularity_config.mutable_correlation_clusterer_config()->set_resolution(
+      edge_weight_stats.total_edge_weight == 0.0
+          ? 0.0
+          : clusterer_config.modularity_clusterer_config().resolution() /
+                edge_weight_stats.total_edge_weight);
+
+  modularity_config.mutable_correlation_clusterer_config()
+      ->set_edge_weight_offset(0.0);
+  return ClusteringHelper(static_cast<NodeId>(graph.Graph()->n),
+                          modularity_config,
+                          std::move(edge_weight_stats.weighted_node_degrees),
+                          initial_clustering, graph.GetNodeParts());
+}
+
+}  // namespace
+
+absl::StatusOr<std::vector<NodeId>>
+ParallelModularityClusterer::ClusterAndReturnClusterIds(
+    const graph_mining::in_memory::ClustererConfig& config) const {
+  
+  if (graph_.Graph() == nullptr) {
+    return absl::FailedPreconditionError(
+        "'ClusterAndReturnClusterIds' cannot be called before 'FinishImport' "
+        "is called for the graph");
+  }
+  if (graph_.Graph()->n == 0) return std::vector<NodeId>();
+  InMemoryClusterer::Clustering clustering =
+      AllSingletonsClustering(graph_.Graph()->n);
+  ASSIGN_OR_RETURN(ClusteringHelper helper,
+                   GetClusteringHelper(graph_, clustering, config));
+  ASSIGN_OR_RETURN(
+      std::vector<ClusterId> cluster_ids,
+      ParallelCorrelationClusterer::RefineClusters(clustering, helper));
+  // TODO: b/399828374 - Avoid this conversion by changing the definition of
+  // `ClusterId`.
+  std::vector<NodeId> cluster_ids_converted(cluster_ids.size());
+  parlay::parallel_for(0, cluster_ids.size(), [&](std::size_t i) {
+    cluster_ids_converted[i] = static_cast<NodeId>(cluster_ids[i]);
+  });
+  return cluster_ids_converted;
 }
 
 absl::Status ParallelModularityClusterer::RefineClusters(
     const ClustererConfig& clusterer_config,
     Clustering* initial_clustering) const {
-  if (clusterer_config.has_correlation_clusterer_config()) {
-    return ParallelCorrelationClusterer::RefineClusters(clusterer_config,
-                                                        initial_clustering);
+  if (graph_.Graph() == nullptr) {
+    return absl::FailedPreconditionError(
+        "'RefineClusters' cannot be called before 'FinishImport' is called for "
+        "the graph");
   }
-
-  // Set modularity clustering config
-  ClustererConfig modularity_config;
-  (*modularity_config.mutable_correlation_clusterer_config()) =
-      clusterer_config.modularity_clusterer_config().correlation_config();
-  auto node_weights_total_weight = GetNodeWeightsAndTotalWeight(graph_.Graph());
-  modularity_config.mutable_correlation_clusterer_config()->set_resolution(
-      clusterer_config.modularity_clusterer_config().resolution() /
-      node_weights_total_weight.total_node_weight);
-  modularity_config.mutable_correlation_clusterer_config()
-      ->set_edge_weight_offset(0.0);
-
-  ClusteringHelper helper{static_cast<NodeId>(graph_.Graph()->n),
-                          modularity_config,
-                          std::move(node_weights_total_weight.node_weights),
-                          *initial_clustering, graph_.GetNodeParts()};
-  return ParallelCorrelationClusterer::RefineClusters(
-      modularity_config, initial_clustering, &helper);
+  ASSIGN_OR_RETURN(
+      ClusteringHelper helper,
+      GetClusteringHelper(graph_, *initial_clustering, clusterer_config));
+  ASSIGN_OR_RETURN(std::vector<ClusterId> cluster_ids,
+                   ParallelCorrelationClusterer::RefineClusters(
+                       *initial_clustering, helper));
+  *initial_clustering =
+      graph_mining::in_memory::OutputIndicesById<ClusterId, NodeId>(
+          cluster_ids);
+  return absl::OkStatus();
 }
 
 }  // namespace graph_mining::in_memory

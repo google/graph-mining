@@ -58,7 +58,7 @@ absl::Status UnweightedSortedNeighborGbbsGraph::Import(
     AdjacencyList adjacency_list) {
   std::sort(adjacency_list.outgoing_edges.begin(),
             adjacency_list.outgoing_edges.end());
-  return GbbsGraphBase<gbbs::symmetric_ptr_graph<
+  return GbbsOutEdgesOnlyGraph<gbbs::symmetric_ptr_graph<
       gbbs::symmetric_vertex, gbbs::empty>>::Import(std::move(adjacency_list));
 }
 

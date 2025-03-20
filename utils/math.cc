@@ -15,6 +15,7 @@
 #include "utils/math.h"
 
 #include <cmath>
+#include <cstdint>
 #include <utility>
 
 namespace graph_mining {

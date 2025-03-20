@@ -18,30 +18,35 @@
 #define THIRD_PARTY_GRAPH_MINING_UTILS_CONTAINER_FIXED_SIZE_PRIORITY_QUEUE_H_
 
 #include <cstdint>
+#include <functional>
+#include <limits>
 #include <vector>
 
-#include "absl/log/check.h"
+#include "absl/log/absl_check.h"
 
 namespace graph_mining {
 
 // Priority queue over a fixed set of elements which, contrary to
-// std::priority_queue, supports updating priorities. This can be used to obtain
-// items of maximum priority (uses std::less<T> as the comparison function).
-template <class T = double>
+// std::priority_queue, supports updating priorities. By default returns items
+// of maximum priority (but this can be customized by providing a different
+// comparator). Priorities are of type PriorityType, and elements are indexed by
+// integers of type IndexType (typically int32_t or int64_t).
+template <class PriorityType = double, class IndexType = int32_t,
+          class LargerPriority = std::greater<PriorityType>>
+  requires std::is_integral_v<IndexType>
 class FixedSizePriorityQueue {
  public:
   // The queue can store a subset of 0, ..., size-1.
-  explicit FixedSizePriorityQueue(int32_t size)
+  explicit FixedSizePriorityQueue(IndexType size)
       : nodes_(2 * size, kInvalidPriority) {}
 
   // Inserts a new element or updates the priority of a given element.
-  // Using priority = std::numeric_limits<T>::max() causes the element to get
-  // deleted.
-  void InsertOrUpdate(int32_t element, T priority) {
-    CHECK_LT(element, NumLeaves());
-    CHECK_GE(element, 0);
+  // Using priority = kInvalidPriority causes the element to get deleted.
+  void InsertOrUpdate(IndexType element, PriorityType priority) {
+    ABSL_CHECK_LT(element, NumLeaves());
+    ABSL_CHECK_GE(element, 0);
 
-    int32_t id = FirstLeaf() + element;
+    IndexType id = FirstLeaf() + element;
     nodes_[id] = priority;
 
     // Update max priorities by traversing the tree up.
@@ -49,10 +54,12 @@ class FixedSizePriorityQueue {
     while (id > 0) {
       const auto& left = nodes_[LeftChild(id)];
       const auto& right = nodes_[RightChild(id)];
-      if (left == kInvalidPriority || right == kInvalidPriority) {
-        nodes_[id] = std::min(left, right);
+      if (left == kInvalidPriority) {
+        nodes_[id] = right;
+      } else if (right == kInvalidPriority) {
+        nodes_[id] = left;
       } else {
-        nodes_[id] = std::max(left, right);
+        nodes_[id] = LargerPriority()(left, right) ? left : right;
       }
       id = Parent(id);
     }
@@ -62,7 +69,9 @@ class FixedSizePriorityQueue {
     while (id < FirstLeaf()) {
       if (nodes_[id] == nodes_[LeftChild(id)]) {
         // Note that when both left and right children are equal to the parent,
-        // we descend left. This ensures that for an empty queue, Top() == 0.
+        // we descend left. This ensures that for an empty queue, Top() == 0 and
+        // in the case when the size of the queue is a power of two we can break
+        // ties by returning the element with the smallest index.
         id = LeftChild(id);
       } else {
         id = RightChild(id);
@@ -72,8 +81,10 @@ class FixedSizePriorityQueue {
   }
 
   // If the element is currently not in the queue and the index is valid, this
-  // function will return std::numeric_limits<T>::max().
-  T Priority(int32_t element) const { return nodes_[FirstLeaf() + element]; }
+  // function will return kInvalidPriority.
+  PriorityType Priority(IndexType element) const {
+    return nodes_[FirstLeaf() + element];
+  }
 
   // Returns true iff the queue has no elements.
   bool Empty() const {
@@ -82,34 +93,41 @@ class FixedSizePriorityQueue {
 
   // Removes the given element. Should not be called on an empty queue. Note
   // that this function silently ignores non-existing elements.
-  void Remove(int32_t element) { InsertOrUpdate(element, kInvalidPriority); }
+  void Remove(IndexType element) { InsertOrUpdate(element, kInvalidPriority); }
 
   // Returns the element with the largest priority. Returns 0 on an empty queue.
-  int32_t Top() const { return top_; }
+  // ***If*** the size of the priority queue is a power of two, ties are broken
+  // by returning the element with the smallest index.
+  IndexType Top() const { return top_; }
+
+  static constexpr PriorityType kInvalidPriority =
+      std::numeric_limits<PriorityType>::max();
 
  private:
-  int32_t Parent(int32_t id) const { return id >> 1; }
+  IndexType Parent(IndexType id) const { return id >> 1; }
 
-  int32_t LeftChild(int32_t id) const { return id << 1; }
+  IndexType LeftChild(IndexType id) const { return id << 1; }
 
-  int32_t RightChild(int32_t id) const { return (id << 1) + 1; }
+  IndexType RightChild(IndexType id) const { return (id << 1) + 1; }
 
-  int32_t FirstLeaf() const { return nodes_.size() / 2; }
+  IndexType FirstLeaf() const { return nodes_.size() / 2; }
 
-  int32_t NumLeaves() const { return nodes_.size() / 2; }
+  IndexType NumLeaves() const { return nodes_.size() / 2; }
 
   // Stores a complete binary tree as follows. Let n be the number of elements.
   // Then:
   // * 0 is unused,
   // * 1 is the root node,
-  // * n, ..., 2*n-1 are the leaves.
+  // * n, ..., 2*n-1 are the leaves, which store the priorities of the elements.
   // Each non-leaf node stores the maximum of all leaves in its subtree.
-  std::vector<T> nodes_;
+  // If the size of the queue is a power of two, then the consecutive leaves
+  // (from the leftmost to the rightmost) correspond to the sequence of the
+  // elements in the queue. In this case, we can break ties by returning the
+  // element with the smallest index.
+  std::vector<PriorityType> nodes_;
 
   // Element with the largest id, or 0 if the queue is empty.
-  int32_t top_ = 0;
-
-  static constexpr T kInvalidPriority = std::numeric_limits<T>::max();
+  IndexType top_ = 0;
 };
 
 }  // namespace graph_mining

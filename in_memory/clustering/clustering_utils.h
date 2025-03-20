@@ -15,7 +15,6 @@
 #ifndef THIRD_PARTY_GRAPH_MINING_IN_MEMORY_CLUSTERING_CLUSTERING_UTILS_H_
 #define THIRD_PARTY_GRAPH_MINING_IN_MEMORY_CLUSTERING_CLUSTERING_UTILS_H_
 
-#include <memory>
 #include <string>
 #include <type_traits>
 #include <vector>
@@ -43,8 +42,15 @@ Clustering CanonicalizeClustering(Clustering clustering,
 // Given an expected number of nodes and a clustering, produce a mapping from
 // NodeId to ClusterId. The mapping is structured as a vector since it is
 // assumed that the NodeIds are contiguous non-negative integers.
-std::vector<NodeId> CreateNodeIdToClusterIdMap(int num_nodes,
+std::vector<NodeId> CreateNodeIdToClusterIdMap(NodeId num_nodes,
                                                const Clustering& clustering);
+
+// Parallel version of `CreateNodeIdToClusterIdMap`. Dies if `clustering`
+// contains a node ID that is not in the range [0, ..., number of nodes - 1],
+// where the number of nodes is computed by summing the cluster sizes. The
+// function assumes without checking that the clusters are disjoint.
+std::vector<NodeId> CreateNodeIdToClusterIdMapParallel(
+    const Clustering& clustering);
 
 // Given a clustering represented as a node_id -> cluster_id mapping, returns
 // the corresponding Clustering. The input is any iterable

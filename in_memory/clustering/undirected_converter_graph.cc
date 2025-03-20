@@ -71,11 +71,9 @@ absl::Status UndirectedConverterGraph::FinishImport() {
   // TODO: Add a factory method and move the validation to an
   // earlier stage.
   if (config_.asymmetric_edge_treatment() !=
-          graph_mining::ConvertToUndirectedConfig::
-              AsymmetricEdgeTreatment_MAX &&
+          graph_mining::ConvertToUndirectedConfig::MAX &&
       config_.asymmetric_edge_treatment() !=
-          graph_mining::ConvertToUndirectedConfig::
-              AsymmetricEdgeTreatment_MIN) {
+          graph_mining::ConvertToUndirectedConfig::MIN) {
     return absl::InvalidArgumentError(
         absl::StrCat("Unsupported ConvertToUndirectedConfig: ",
                                 ""));
@@ -102,8 +100,7 @@ absl::Status UndirectedConverterGraph::FinishImport() {
                (std::tie(std::get<0>(a), std::get<1>(a)) ==
                     std::tie(std::get<0>(b), std::get<1>(b)) &&
                 (config_.asymmetric_edge_treatment() ==
-                         graph_mining::ConvertToUndirectedConfig::
-                             AsymmetricEdgeTreatment_MAX
+                         graph_mining::ConvertToUndirectedConfig::MAX
                      ? std::get<2>(a) > std::get<2>(b)
                      : std::get<2>(a) < std::get<2>(b)));
       });

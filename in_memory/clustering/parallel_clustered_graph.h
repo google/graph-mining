@@ -80,6 +80,10 @@ class ClusteredNode {
       return {neighbor, weight};
     };
     auto reduce_f = [&](const EdgePair& l, const EdgePair& r) -> EdgePair {
+      if (!Weight::Smaller(l.second, r.second) &&
+          !Weight::Smaller(r.second, l.second)) {
+        return (l.first < r.first) ? l : r;
+      }
       return Weight::Smaller(l.second, r.second) ? r : l;
     };
     EdgePair id = {std::numeric_limits<uintE>::max(), Weight()};
@@ -203,7 +207,10 @@ class ClusteredGraph {
       auto map_f = [&](uintE u, uintE v, W cut_weight) {
         Weight weight(cut_weight);
         ABSL_CHECK_NE(u, v);
-        neighbors->InsertOrUpdate(v, weight, update_f);
+        // Filter out and silently ignore all zero-weight edges.
+        if (weight.Similarity(1) > 0) {
+          neighbors->InsertOrUpdate(v, weight, update_f);
+        }
       };
       base_graph_->get_vertex(i).out_neighbors().map(map_f);
     });

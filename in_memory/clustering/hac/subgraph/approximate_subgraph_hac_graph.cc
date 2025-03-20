@@ -48,7 +48,9 @@ ApproximateSubgraphHacGraph::ApproximateSubgraphHacGraph(
     const std::vector<double>& min_merge_similarities)
     : is_active_(std::move(is_active)),
       min_merge_similarities_(min_merge_similarities),
-      node_pq_(FixedSizePriorityQueue<double>(num_nodes)),
+      node_pq_(
+          FixedSizePriorityQueue</*PriorityType=*/double, /*IndexType=*/NodeId>(
+              num_nodes)),
       one_plus_alpha_(1 + alpha),
       one_plus_eps_(1 + epsilon) {
   nodes_.reserve(graph.NumNodes());

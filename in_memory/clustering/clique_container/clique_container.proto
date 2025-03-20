@@ -1,0 +1,10 @@
+edition = "2023";
+
+package graph_mining.in_memory;
+
+option java_multiple_files = true;
+
+message CliqueContainerConfig {
+  // The minimum density of the clique containers to be returned.
+  double min_density = 1;
+}

@@ -21,11 +21,19 @@
 #ifndef RESEARCH_GRAPH_IN_MEMORY_PARALLEL_PARALLEL_SEQUENCE_OPS_H_
 #define RESEARCH_GRAPH_IN_MEMORY_PARALLEL_PARALLEL_SEQUENCE_OPS_H_
 
+#include <cstddef>
+#include <functional>
+#include <utility>
+#include <vector>
+
+#include "absl/log/absl_check.h"
 #include "absl/types/span.h"
+#include "gbbs/bridge.h"
+#include "parlay/delayed_sequence.h"
 #include "parlay/internal/counting_sort.h"
 #include "parlay/internal/integer_sort.h"
 #include "parlay/primitives.h"
-#include "gbbs/bridge.h"
+#include "parlay/sequence.h"
 
 namespace graph_mining::in_memory {
 
@@ -149,39 +157,68 @@ std::vector<A> GetBoundaryIndices(
   return ret;
 }
 
-// Given ids (class A) and a function indicating which indices (class B) to
-// process, re-arrange the indices such that they are grouped by id, and return
-// a vector of these groups.
-template <class A, class B>
-std::vector<std::vector<B>> OutputIndicesById(
-    const absl::Span<const A>& index_ids,
-    const std::function<B(B)>& get_indices_func, B num_indices) {
-  auto idxs = parlay::sequence<B>::from_function(
-      num_indices, [&](std::size_t i) -> B { return get_indices_func(i); });
-  auto comp = [&](const B& l, const B& r) {
+// Given an index -> ID mapping and a list of indices, groups the indices by
+// their IDs and returns these groups.
+//
+// The inputs are specified as follows:
+//   - The index -> ID mapping is given explicitly by the argument `index_ids`.
+//   - The list of indices is specified implicitly by the arguments
+//     `num_indices` and `get_indices_func`. Specifically, the list of indices
+//     is:
+//
+//        `(get_indices_func(0), ..., get_indices_func(num_indices - 1))`
+//
+//     Any index in this list must be in the range `[0, index_ids.size() - 1]`;
+//     otherwise the function dies. The list may contain duplicates, and
+//     duplicates are preserved in the output.
+//
+// In the output, each vector is non-empty and contains a list of indices
+// (possibly with duplicates, if the input contains duplicate indices) that are
+// mapped to the same ID (the ID itself is not explicitly stored in the output).
+template <class Id, class Index>
+std::vector<std::vector<Index>> OutputIndicesById(
+    const absl::Span<const Id> index_ids,
+    const std::function<Index(Index)>& get_indices_func, Index num_indices) {
+  // Build the list of indices and sort by the correspond IDs. Use stable
+  // sorting to make the output deterministic.
+  auto idxs = parlay::sequence<Index>::from_function(
+      num_indices, [&](std::size_t i) -> Index {
+        Index idx = get_indices_func(i);
+        ABSL_CHECK_LT(idx, index_ids.size());
+        return idx;
+      });
+  auto compare_by_index_id = [&](const Index& l, const Index& r) {
     return index_ids[l] < index_ids[r];
   };
-  parlay::stable_sort_inplace(parlay::make_slice(idxs), comp);
+  parlay::stable_sort_inplace(parlay::make_slice(idxs), compare_by_index_id);
 
-  // Compute indices which start each block
+  // Returns a boolean indicating whether `i` is the start of a contiguous block
+  // of indices that are mapped to the same ID.
   auto is_start = [&](std::size_t i) {
     return i == 0 || (index_ids[idxs[i - 1]] != index_ids[idxs[i]]);
   };
-  auto starts =
-      parlay::filter(parlay::iota<std::size_t>(num_indices), is_start);
+  // List of indices that start those contiguous blocks.
+  auto starts = parlay::filter(parlay::iota<size_t>(idxs.size()), is_start);
 
-  std::vector<std::vector<B>> finished_indices(starts.size());
-  parlay::parallel_for(0, starts.size(), [&](auto i) {
-    auto start = starts[i];
-    auto end = (i == starts.size() - 1) ? num_indices : starts[i + 1];
-    auto size = end - start;
-    auto ret = std::vector<B>(size);
-    for (size_t j = 0; j < size; j++) {
-      ret[j] = idxs[start + j];
-    }
-    finished_indices[i] = std::move(ret);
+  // `finished_indices[i]` will contain the indices that are mapped to the same
+  // index as `idxs[starts[i]]`.
+  std::vector<std::vector<Index>> finished_indices(starts.size());
+  parlay::parallel_for(0, starts.size(), [&](size_t i) {
+    size_t start = starts[i];
+    size_t end = (i == starts.size() - 1) ? num_indices : starts[i + 1];
+    finished_indices[i] =
+        std::vector<Index>(idxs.begin() + start, idxs.begin() + end);
   });
   return finished_indices;
+}
+
+// Overload of the function above for the case where the indices are `(0, ...,
+// index_ids.size() - 1)`.
+template <class Id, class Index>
+std::vector<std::vector<Index>> OutputIndicesById(
+    const absl::Span<const Id> index_ids) {
+  return OutputIndicesById<Id, Index>(
+      index_ids, [](Index i) { return i; }, index_ids.size());
 }
 
 // ===================   Parallel sorting methods ========================= //

@@ -15,12 +15,15 @@
 #ifndef THIRD_PARTY_GRAPH_MINING_IN_MEMORY_CLUSTERING_CORRELATION_PARALLEL_MODULARITY_INTERNAL_H_
 #define THIRD_PARTY_GRAPH_MINING_IN_MEMORY_CLUSTERING_CORRELATION_PARALLEL_MODULARITY_INTERNAL_H_
 
-#include "in_memory/clustering/config.pb.h"
-#include "in_memory/clustering/in_memory_clusterer.h"
+#include <vector>
+
+#include "absl/base/attributes.h"
+#include "absl/base/nullability.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
-#include "absl/types/optional.h"
+#include "in_memory/clustering/config.pb.h"
 #include "in_memory/clustering/correlation/parallel_correlation.h"
+#include "in_memory/clustering/in_memory_clusterer.h"
 
 namespace graph_mining::in_memory {
 
@@ -32,16 +35,21 @@ class ParallelModularityClusterer : public ParallelCorrelationClusterer {
 
   ~ParallelModularityClusterer() override {}
 
-  Graph* MutableGraph() override { return &graph_; }
+  absl::Nonnull<Graph*> MutableGraph() ABSL_ATTRIBUTE_LIFETIME_BOUND override {
+    return &graph_;
+  }
 
   absl::StatusOr<Clustering> Cluster(
       const graph_mining::in_memory::ClustererConfig& config) const override;
 
+  absl::StatusOr<std::vector<NodeId>> ClusterAndReturnClusterIds(
+      const graph_mining::in_memory::ClustererConfig& config) const override;
+
   // initial_clustering must include every node in the range
-  // [0, MutableGraph().NumNodes()) exactly once. If it doesn't this function
-  // will either return an error or run normally starting from an unspecified
-  // clustering. (Currently it always returns an error but this may change in
-  // the future.)
+  // [0, number of nodes in MutableGraph()) exactly once. If it doesn't this
+  // function will either return an error or run normally starting from an
+  // unspecified clustering. (Currently it always returns an error but this may
+  // change in the future.)
   absl::Status RefineClusters(
       const graph_mining::in_memory::ClustererConfig& clusterer_config,
       Clustering* initial_clustering) const override;

@@ -12,8 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-load("@com_google_protobuf//:protobuf.bzl", "py_proto_library")
-load("@rules_proto//proto:defs.bzl", "proto_library")
+load("@com_google_protobuf//bazel:cc_proto_library.bzl", "cc_proto_library")
+load("@com_google_protobuf//bazel:proto_library.bzl", "proto_library")
+load("@com_google_protobuf//bazel:py_proto_library.bzl", "py_proto_library")
 
 package(default_visibility = ["//visibility:public"])
 
@@ -24,8 +25,11 @@ cc_library(
     hdrs = ["parallel_sequence_ops.h"],
     deps = [
         "@com_github_gbbs//gbbs:bridge",
+        "@com_google_absl//absl/log:absl_check",
         "@com_google_absl//absl/types:span",
+        "@parlaylib//parlay:delayed_sequence",
         "@parlaylib//parlay:primitives",
+        "@parlaylib//parlay:sequence",
         "@parlaylib//parlay/internal:counting_sort",
         "@parlaylib//parlay/internal:integer_sort",
     ],

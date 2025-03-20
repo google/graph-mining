@@ -1,4 +1,4 @@
-# Copyright 2023 Google LLC
+# Copyright 2024 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,34 +12,27 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Parallel PageRank library.
+load("@com_google_protobuf//bazel:cc_proto_library.bzl", "cc_proto_library")
+load("@com_google_protobuf//bazel:proto_library.bzl", "proto_library")
+load("@com_google_protobuf//bazel:py_proto_library.bzl", "py_proto_library")
 
-load("@com_google_protobuf//:protobuf.bzl", "py_proto_library")
-load("@rules_proto//proto:defs.bzl", "proto_library")
-
-package(default_visibility = ["//visibility:public"])
-
-proto_library(
-    name = "pagerank_proto",
-    srcs = ["pagerank.proto"],
+package(
+        default_visibility = ["//visibility:public"],
 )
 
-cc_proto_library(
-    name = "pagerank_cc_proto",
-    deps = [":pagerank_proto"],
-)
+licenses(["notice"])
 
 cc_library(
-    name = "parallel_pagerank",
-    srcs = ["parallel_pagerank.cc"],
-    hdrs = ["parallel_pagerank.h"],
+    name = "dijkstra",
+    srcs = ["dijkstra.cc"],
+    hdrs = ["dijkstra.h"],
     deps = [
-        ":pagerank_cc_proto",
+        "//in_memory:status_macros",
         "//in_memory/clustering:gbbs_graph",
-        "//in_memory/parallel:scheduler",
-        "@com_github_gbbs//benchmarks/PageRank",
+        "//in_memory/clustering:types",
+        "//utils/container:fixed_size_priority_queue",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/status:statusor",
-        "@parlaylib//parlay:sequence",
+        "@com_google_absl//absl/strings",
     ],
 )

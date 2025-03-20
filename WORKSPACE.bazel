@@ -9,17 +9,27 @@ load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 git_repository(
     name = "com_google_absl",
     remote = "https://github.com/abseil/abseil-cpp.git",
-    tag = "20240116.1",
+    tag = "20250127.1",
 )
 
 http_archive(
     name = "com_google_protobuf",
-    sha256 = "930c2c3b5ecc6c9c12615cf5ad93f1cd6e12d0aba862b572e076259970ac3a53",
-    strip_prefix = "protobuf-3.21.12",
-    urls = ["https://github.com/protocolbuffers/protobuf/archive/v3.21.12.tar.gz"],
+    strip_prefix = "protobuf-30.1",
+    urls = ["https://github.com/protocolbuffers/protobuf/archive/v30.1.zip"],
 )
+
 load("@com_google_protobuf//:protobuf_deps.bzl", "protobuf_deps")
 protobuf_deps()
+
+load("@rules_java//java:rules_java_deps.bzl", "rules_java_dependencies")
+
+rules_java_dependencies()
+
+load("@rules_cc//cc:repositories.bzl", "rules_cc_dependencies", "rules_cc_toolchains")
+
+rules_cc_dependencies()
+
+rules_cc_toolchains()
 
 FARMHASH_COMMIT = "0d859a811870d10f53a594927d0d0b97573ad06d"
 FARMHASH_SHA256 = "18392cf0736e1d62ecbb8d695c31496b6507859e8c75541d7ad0ba092dc52115"
@@ -42,7 +52,7 @@ http_archive(
 git_repository(
     name = "com_github_gbbs",
     remote = "https://github.com/ParAlg/gbbs.git",
-    commit = "7e75bffb4081cb5a415a917c8abd3754c6f96b2c",
+    commit = "f0d292dac1b3c910a9ea7d5eabc760248f625e6e",
 )
 
 git_repository(
