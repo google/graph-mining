@@ -61,6 +61,11 @@ int64_t UpperTriangleSize(int n);
 //   where UTS is UpperTriangleSize
 std::pair<int, int> UpperTriangleIndex(int64_t linear_index, int n);
 
+// Converts between linear and matrix indices for a lower triangular
+// matrix with diagonal entries. Similar to the `UpperTriangleIndex()` function,
+// but includes the diagonal entries.
+std::pair<int, int> LowerTriangleWithDiagIndex(int64_t linear_index, int n);
+
 }  // namespace graph_mining
 
 #endif  // THIRD_PARTY_GRAPH_MINING_UTILS_MATH_H_

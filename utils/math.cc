@@ -32,4 +32,12 @@ std::pair<int, int> UpperTriangleIndex(int64_t linear_index, int n) {
       linear_index + i + 1 - UpperTriangleSize(n) + UpperTriangleSize(n - i);
   return {i, j};
 }
+
+std::pair<int, int> LowerTriangleWithDiagIndex(int64_t linear_index, int n) {
+  const double s =
+      std::ceil(-0.5 + std::sqrt(1.0 + 8.0 * (linear_index + 1.0)) / 2.0);
+  const int i = static_cast<int>(s) - 1;                  // row index
+  const int j = linear_index - int64_t{i} * (i + 1) / 2;  // col index
+  return {i, j};
+}
 }  // namespace graph_mining

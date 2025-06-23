@@ -100,8 +100,28 @@ class FixedSizePriorityQueue {
   // by returning the element with the smallest index.
   IndexType Top() const { return top_; }
 
+  // Extends the class to support priority types of the form std::pair<A, B>.
+  // NB: Although `T` in `std::numeric_limits<T>::max()` is limited by the
+  // standard to be an arithmetic type, the actual STL implementation allows for
+  // `T` to be a tuple. However, `max()` is silently incorrectly returning
+  // std::pair{A(), B()}, as opposed to the correct:
+  //   std::pair{std::numeric_limits<A>::max(), std::numeric_limits<B>::max()}
+  template <typename T>
+  static constexpr auto invalid_priority()
+    requires std::is_arithmetic_v<T>
+  {
+    return std::numeric_limits<T>::max();
+  }
+
+  template <typename T>
+  static constexpr auto invalid_priority() {
+    using A = typename T::first_type;
+    using B = typename T::second_type;
+    return T{invalid_priority<A>(), invalid_priority<B>()};
+  }
+
   static constexpr PriorityType kInvalidPriority =
-      std::numeric_limits<PriorityType>::max();
+      invalid_priority<PriorityType>();
 
  private:
   IndexType Parent(IndexType id) const { return id >> 1; }
@@ -132,4 +152,4 @@ class FixedSizePriorityQueue {
 
 }  // namespace graph_mining
 
-#endif  // RESEARCH_GRAPH_GENERIC_CONTAINER_FIXED_SIZE_PRIORITY_QUEUE_H_
+#endif  // THIRD_PARTY_GRAPH_MINING_UTILS_CONTAINER_FIXED_SIZE_PRIORITY_QUEUE_H_

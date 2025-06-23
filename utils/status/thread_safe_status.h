@@ -29,20 +29,18 @@ class ThreadSafeStatus {
     return status_;
   }
 
+  // If the internal status is OK, updates it to `status`. Otherwise, this is a
+  // no-op.
+  //
+  // This method has the same semantics as `absl::Status::Update()`.
   void Update(const absl::Status& status) {
+    // Avoid acquiring the mutex if `status` is OK, since the update would be a
+    // no-op.
+    if (status.ok()) {
+      return;
+    }
     absl::MutexLock l(&mutex_);
     status_.Update(status);
-  }
-
-  // Updates the internal status if the input is not OK. Returns true if the
-  // internal status is updated. Returns false otherwise.
-  bool MaybeUpdateStatus(const absl::Status& status) {
-    if (status.ok()) {
-      return false;
-    } else {
-      Update(status);
-      return true;
-    }
   }
 
  private:

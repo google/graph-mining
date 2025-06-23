@@ -31,8 +31,7 @@ class ParseProtoHelper {
     static_assert(std::is_base_of<google::protobuf::Message, T>::value &&
                   !std::is_same<google::protobuf::Message, T>::value);
     T msg;
-    ABSL_CHECK(
-        google::protobuf::TextFormat::ParseFromString(std::string(string_view_), &msg));
+    ABSL_CHECK(google::protobuf::TextFormat::ParseFromString(string_view_, &msg));
     return msg;
   }
 

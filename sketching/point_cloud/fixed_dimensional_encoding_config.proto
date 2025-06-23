@@ -1,0 +1,81 @@
+// Copyright 2023 Google LLC
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+syntax = "proto2";
+
+package graph_mining;
+
+// Config message for GenerateFixedDimensionalEncoding function.
+message FixedDimensionalEncodingConfig {
+  // Dimension of the input embeddings.
+  optional int32 dimension = 3;
+
+  // Number of independent repetitions for FDE generation.
+  optional int32 num_repetitions = 4 [default = 1];
+
+  // Number of SimHash projections used to partition space in each repetition.
+  // Is ignored if a partitioning method that is not "DEFAULT_SIMHASH" is
+  // being used.
+  optional int32 num_simhash_projections = 5;
+
+  // Seed for the FDE generation process. Must be set to the same value for
+  // query and document FDE generation to ensure coonsistency of the partitions
+  // and projections used for queries and docuemnets.
+  optional int32 seed = 6 [default = 1];
+
+  // How embeddings are added to the FDE. `DEFAULT_SUM` means that points are
+  // summed into the respective locations in the FDE. `AVERAGE` means that an
+  // average of all embeddings mapped to a partition in the FDE is taken.
+  // Generally, Query FDE Encoodings will  use `DEFAULT_SUM`, whereas document
+  // side FDE generation will use `AVERAGE`.
+  enum EncodingType {
+    DEFAULT_SUM = 0;
+    AVERAGE = 1;
+  }
+
+  optional EncodingType encoding_type = 7 [default = DEFAULT_SUM];
+
+  // If a random projection `encoding_type` is being used, this is the
+  // dimension to which points are reduced via random projections.
+  optional int32 projection_dimension = 8;
+
+  // The ProjectionType sets how the original embeddings are projected down to
+  // `projection_dimension` dimensional space before being added to the FDE.
+  // -- `DEFAULT_IDENTITY` means that no projection is set, and the original
+  // embeddings are added to the FDE.
+  // --  `AMS_SKETCH` a dense AMS sketch is used to project the data original
+  // embeddings.
+  enum ProjectionType {
+    DEFAULT_IDENTITY = 0;
+    AMS_SKETCH = 1;
+  }
+
+  optional ProjectionType projection_type = 9 [default = DEFAULT_IDENTITY];
+
+  // If true, the blocks of the output FDE corresponding to an empty partition
+  // are filled with the coordinates of the point in the input point cloud
+  // which is nearest to the partition. Here, the nearest point is defined as
+  // the point which minimizes the number of disagreeing bits between its
+  // SimHash sketch and the bits in the sketch corresponding to the partition.
+  // This option throws an InvalidArgumentError if enabled when used with
+  // query FDE generation.
+  optional bool fill_empty_partitions = 10 [default = false];
+
+  // If set, the final FDE is projected down to this dimension using a
+  // random projection. The random projection is implemented using Count-Sketch
+  // (i.e., sparse Johnson-Lindenstrauss projection) for efficiency purposes,
+  // allowing the original FDE to be constructed with large dimension before
+  // being projected down.
+  optional int32 final_projection_dimension = 11;
+}

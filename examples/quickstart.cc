@@ -56,7 +56,7 @@ absl::Status ClusteringExample() {
   return absl::OkStatus();
 }
 
-int main(void) {
+int main() {
   auto status = ClusteringExample();
   if (!status.ok()) {
     std::cout << "Error: " << status.ToString() << std::endl;
