@@ -12,9 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-load("@com_google_protobuf//bazel:cc_proto_library.bzl", "cc_proto_library")
-load("@com_google_protobuf//bazel:proto_library.bzl", "proto_library")
-load("@com_google_protobuf//bazel:py_proto_library.bzl", "py_proto_library")
+load("@protobuf//bazel:cc_proto_library.bzl", "cc_proto_library")
+load("@protobuf//bazel:proto_library.bzl", "proto_library")
+load("@protobuf//bazel:py_proto_library.bzl", "py_proto_library")
 
 package(default_visibility = ["//visibility:public"])
 
@@ -25,9 +25,19 @@ cc_library(
     srcs = ["status_macros.cc"],
     hdrs = ["status_macros.h"],
     deps = [
-        "@com_google_googletest//:gtest",
-        "@com_google_absl//absl/log:absl_log",
-        "@com_google_absl//absl/status",
-        "@com_google_absl//absl/status:statusor",
+        "@googletest//:gtest",
+        "@abseil-cpp//absl/log:absl_log",
+        "@abseil-cpp//absl/status",
+        "@abseil-cpp//absl/status:statusor",
     ],
+)
+
+proto_library(
+    name = "graph_expectations_proto",
+    srcs = ["graph_expectations.proto"],
+)
+
+cc_proto_library(
+    name = "graph_expectations_cc_proto",
+    deps = [":graph_expectations_proto"],
 )

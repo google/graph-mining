@@ -17,31 +17,35 @@
 
 #include "absl/status/statusor.h"
 #include "in_memory/clustering/config.pb.h"
+#include "in_memory/clustering/gbbs_graph.h"
 #include "in_memory/clustering/graph.h"
 #include "in_memory/clustering/in_memory_clusterer.h"
 
 namespace graph_mining {
 namespace in_memory {
 
-// Computes a collection of overlapping clusters, that satisfies the following
-// two guarantees:
-//  * Each clique in the graph is fully contained in at least one cluster.
+// Computes a collection of potentially overlapping clusters, that satisfies the
+// following guarantees:
+//  * Each clique of size >=2 in the graph is fully contained in at least one
+//    cluster.
 //  * The density of each cluster is at least `min_density` (which is a
-//  parameter of the algorithm).
+//    parameter of the algorithm).
+//  * No cluster is a subset of another cluster.
 // Here, the density of a cluster is defined as the number of edges in the
 // cluster divided by the number of possible edges in the cluster, i.e. (#nodes
 // choose 2). As long as the density parameter is <= 0.9, in typical cases the
 // number of clusters returned is similar to the number of nodes in the graph.
-// For the algorithm description and analysis, see go/dense-subgraphs-draft.
+// For the algorithm description and analysis, see go/dense-subgraphs-paper.
 class CliqueContainerClusterer : public InMemoryClusterer {
  public:
   Graph* MutableGraph() override { return &graph_; }
 
+  // Each cluster is a *sorted* vector of node IDs.
   absl::StatusOr<Clustering> Cluster(
       const graph_mining::in_memory::ClustererConfig& config) const override;
 
  private:
-  SimpleUndirectedGraph graph_;
+  UnweightedGbbsGraph graph_;
 };
 
 }  // namespace in_memory

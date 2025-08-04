@@ -19,7 +19,7 @@ package graph_mining.in_memory;
 
 import 'in_memory/clustering/affinity/dynamic_weight_threshold.proto';
 
-// NextId: 11
+// NextId: 12
 message AffinityClustererConfig {
   // Number of times we perform single-linkage clustering. If num_iterations =
   // 0, produces a clustering in which each node is in its own cluster. Note
@@ -69,8 +69,18 @@ message AffinityClustererConfig {
     PERCENTILE = 4;
     // sum(S) / count(S)
     EXPLICIT_AVERAGE = 5;
+    // The average is computed as follows:
+    //   sum(S) / min(max_degree_bounded_weight_multiplier*min(X,Y), X*Y)
+    // This option increases the similarity of large clusters which are sparsely
+    // connected due to the max degree bound.
+    AVERAGE_WITH_MAX_DEGREE_BOUNDED = 6;
   }
   optional EdgeAggregationFunction edge_aggregation_function = 3;
+
+  // Optional constant to multiply the minimum of cluster sizes in
+  // `AVERAGE_WITH_MAX_DEGREE_BOUNDED` aggregation. It should be greater than 0.
+  // One option is to set this to k, in the case when we work with a k-NN graph.
+  optional float max_degree_bounded_weight_multiplier = 11 [default = 1.0];
 
   // Specifies a set of conditions that qualify cluster as "active".
   // An unset field defines a condition that's always satisfied.

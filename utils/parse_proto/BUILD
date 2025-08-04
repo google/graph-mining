@@ -12,9 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-load("@com_google_protobuf//bazel:cc_proto_library.bzl", "cc_proto_library")
-load("@com_google_protobuf//bazel:proto_library.bzl", "proto_library")
-load("@com_google_protobuf//bazel:py_proto_library.bzl", "py_proto_library")
+load("@protobuf//bazel:cc_proto_library.bzl", "cc_proto_library")
+load("@protobuf//bazel:proto_library.bzl", "proto_library")
+load("@protobuf//bazel:py_proto_library.bzl", "py_proto_library")
 
 # Open source version of proto parsing utilities.
 package(
@@ -36,7 +36,7 @@ cc_library(
     hdrs = ["parse_text_proto_internal.h"],
     deps = [
         "@com_google_protobuf//:protobuf",
-        "@com_google_absl//absl/log:absl_check",
-        "@com_google_absl//absl/strings",
+        "@abseil-cpp//absl/log:absl_check",
+        "@abseil-cpp//absl/strings",
     ],
 )

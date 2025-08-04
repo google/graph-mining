@@ -33,6 +33,7 @@
 #include "gbbs/graph.h"
 #include "gbbs/macros.h"
 #include "gbbs/vertex.h"
+#include "in_memory/clustering/affinity/affinity.pb.h"
 #include "in_memory/clustering/in_memory_clusterer.h"
 #include "in_memory/clustering/types.h"
 #include "in_memory/connected_components/asynchronous_union_find.h"
@@ -64,7 +65,7 @@ inline double GetNodeWeight(const std::vector<double>& node_weights,
 // Compresses the cluster ids to consecutive integers in the range from 0 to
 // num_clusters - 1.
 std::vector<gbbs::uintE> CompressClusterIds(
-    const absl::Span<const gbbs::uintE>& cluster_ids) {
+    const absl::Span<const gbbs::uintE> cluster_ids) {
   auto unique_ids = parlay::remove_duplicates(cluster_ids);
   parlay::sort_inplace(unique_ids);
   parlay::sequence<gbbs::uintE> cluster_id_to_rank(cluster_ids.size());
@@ -347,6 +348,23 @@ absl::StatusOr<GraphWithWeights> CompressGraph(
         };
       }
       break;
+    case AffinityClustererConfig::AVERAGE_WITH_MAX_DEGREE_BOUNDED:
+      edge_aggregation_func = [](float w1, float w2) { return w1 + w2; };
+      if (!original_node_weights.empty()) {
+        ABSL_CHECK_GT(affinity_config.max_degree_bounded_weight_multiplier(),
+                      0);
+        scale_func = [&original_node_weights, &affinity_config](
+                         std::tuple<gbbs::uintE, gbbs::uintE, float> v) {
+          const float size_x = original_node_weights[std::get<0>(v)];
+          const float size_y = original_node_weights[std::get<1>(v)];
+          const float scaling_factor =
+              std::min(affinity_config.max_degree_bounded_weight_multiplier() *
+                           std::min(size_x, size_y),
+                       size_x * size_y);
+          return std::get<2>(v) * scaling_factor;
+        };
+      }
+      break;
     default:
       ABSL_LOG(FATAL) << "Unknown edge aggregation method: "
                       << edge_aggregation;
@@ -370,7 +388,9 @@ absl::StatusOr<GraphWithWeights> CompressGraph(
   }
 
   ABSL_CHECK(edge_aggregation == AffinityClustererConfig::DEFAULT_AVERAGE ||
-             edge_aggregation == AffinityClustererConfig::CUT_SPARSITY)
+             edge_aggregation == AffinityClustererConfig::CUT_SPARSITY ||
+             edge_aggregation ==
+                 AffinityClustererConfig::AVERAGE_WITH_MAX_DEGREE_BOUNDED)
       << "Invalid aggregation: " << edge_aggregation;
 
   // Scale edge weights
@@ -385,6 +405,13 @@ absl::StatusOr<GraphWithWeights> CompressGraph(
       } else if (edge_aggregation == AffinityClustererConfig::CUT_SPARSITY) {
         scaling_factor =
             std::min(node_weights[i], node_weights[std::get<0>(edge)]);
+      } else {
+        ABSL_CHECK_GT(affinity_config.max_degree_bounded_weight_multiplier(),
+                      0);
+        scaling_factor = std::min(
+            affinity_config.max_degree_bounded_weight_multiplier() *
+                std::min(node_weights[i], node_weights[std::get<0>(edge)]),
+            node_weights[i] * node_weights[std::get<0>(edge)]);
       }
       edges[offset + j] = std::make_tuple(std::get<0>(edge),
                                           std::get<1>(edge) / scaling_factor);

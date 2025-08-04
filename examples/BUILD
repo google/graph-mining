@@ -12,9 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-load("@com_google_protobuf//bazel:cc_proto_library.bzl", "cc_proto_library")
-load("@com_google_protobuf//bazel:proto_library.bzl", "proto_library")
-load("@com_google_protobuf//bazel:py_proto_library.bzl", "py_proto_library")
+load("@protobuf//bazel:cc_proto_library.bzl", "cc_proto_library")
+load("@protobuf//bazel:proto_library.bzl", "proto_library")
+load("@protobuf//bazel:py_proto_library.bzl", "py_proto_library")
 
 package(
         default_visibility = ["//visibility:public"],
@@ -30,6 +30,6 @@ cc_binary(
         "//in_memory/clustering:config_cc_proto",
         "//in_memory/clustering:graph",
         "//in_memory/clustering/hac:parhac",
-        "@com_google_absl//absl/status",
+        "@abseil-cpp//absl/status",
     ],
 )

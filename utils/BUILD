@@ -12,9 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-load("@com_google_protobuf//bazel:cc_proto_library.bzl", "cc_proto_library")
-load("@com_google_protobuf//bazel:proto_library.bzl", "proto_library")
-load("@com_google_protobuf//bazel:py_proto_library.bzl", "py_proto_library")
+load("@protobuf//bazel:cc_proto_library.bzl", "cc_proto_library")
+load("@protobuf//bazel:proto_library.bzl", "proto_library")
+load("@protobuf//bazel:py_proto_library.bzl", "py_proto_library")
 
 package(default_visibility = ["//visibility:public"])
 
@@ -25,8 +25,8 @@ cc_library(
     srcs = ["math.cc"],
     hdrs = ["math.h"],
     deps = [
-        "@com_google_absl//absl/log:absl_check",
-        "@com_google_absl//absl/numeric:bits",
+        "@abseil-cpp//absl/log:absl_check",
+        "@abseil-cpp//absl/numeric:bits",
     ],
 )
 
@@ -34,6 +34,6 @@ cc_library(
     name = "timer",
     hdrs = ["timer.h"],
     deps = [
-        "@com_google_absl//absl/time",
+        "@abseil-cpp//absl/time",
     ],
 )

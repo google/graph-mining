@@ -18,6 +18,8 @@
 #include <cstdint>
 #include <memory>
 #include <numeric>
+#include <optional>
+#include <utility>
 #include <vector>
 
 #include "gmock/gmock.h"
@@ -28,6 +30,7 @@
 #include "absl/log/log.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/str_cat.h"
+#include "gbbs/helpers/progress_reporting.h"
 #include "in_memory/clustering/graph.h"
 #include "in_memory/clustering/graph_utils.h"
 #include "in_memory/clustering/in_memory_clusterer.h"
@@ -115,6 +118,29 @@ absl::StatusOr<Clustering> Cluster(
     case InMemoryClustererMethod::kVectorOfClusterIds: {
       ASSIGN_OR_RETURN(std::vector<NodeId> cluster_ids,
                        clusterer.ClusterAndReturnClusterIds(config));
+      EXPECT_THAT(cluster_ids, Each(AllOf(Ge(0), Lt(num_nodes))));
+      return OutputIndicesById<NodeId, NodeId>(cluster_ids);
+    }
+  }
+  ABSL_LOG(FATAL) << "Unsupported clusterer method: "
+                  << absl::StrCat(clusterer_method);
+}
+
+absl::StatusOr<Clustering> Cluster(
+    const InMemoryClustererWithProgressReporting& clusterer,
+    const graph_mining::in_memory::ClustererConfig& config,
+    InMemoryClustererMethod clusterer_method, const int num_nodes,
+    std::optional<gbbs::ReportProgressCallback> report_progress) {
+  switch (clusterer_method) {
+    case InMemoryClustererMethod::kVectorOfClusters: {
+      return clusterer.ClusterWithProgressReporting(config,
+                                                    std::move(report_progress));
+    }
+    case InMemoryClustererMethod::kVectorOfClusterIds: {
+      ASSIGN_OR_RETURN(
+          std::vector<NodeId> cluster_ids,
+          clusterer.ClusterAndReturnClusterIdsWithProgressReporting(
+              config, std::move(report_progress)));
       EXPECT_THAT(cluster_ids, Each(AllOf(Ge(0), Lt(num_nodes))));
       return OutputIndicesById<NodeId, NodeId>(cluster_ids);
     }

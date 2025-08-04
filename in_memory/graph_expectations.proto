@@ -1,0 +1,24 @@
+edition = "2023";
+
+package graph_mining.in_memory;
+
+// Specifies requirements that a graph must satisfy.
+message GraphExpectations {
+  // If true, then the graph is expected to be symmetric, i.e., for any edge
+  // <source, destination, weight> in the graph, there must also be an edge
+  // <destination, source, weight>.
+  bool symmetric = 1;
+
+  // Enum that specifies the range of allowed values for a weight. All weights
+  // must be finite, that is, +- infinity and NaN are not allowed. This enum
+  // specifies constraints (if any) in addition to that.
+  enum WeightRange {
+    WEIGHT_RANGE_UNSPECIFIED = 0;  // Not semmantically meaningful; do not use.
+    FINITE = 1;  // No constraints except +- infinity and NaN are not allowed.
+    NONNEGATIVE = 2;
+    POSITIVE = 3;
+  }
+
+  // If set, specifies the range of allowed values for edge weights.
+  WeightRange edge_weights_range = 2;
+}

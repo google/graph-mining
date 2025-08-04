@@ -15,6 +15,7 @@
 #include "in_memory/clustering/correlation/parallel_modularity.h"
 
 #include <cstddef>
+#include <optional>
 #include <utility>
 #include <vector>
 
@@ -22,8 +23,10 @@
 #include "absl/status/statusor.h"
 #include "absl/strings/str_format.h"
 #include "gbbs/graph.h"
+#include "gbbs/helpers/progress_reporting.h"
 #include "gbbs/macros.h"
 #include "gbbs/vertex.h"
+#include "in_memory/clustering/config.pb.h"
 #include "in_memory/clustering/correlation/parallel_correlation.h"
 #include "in_memory/clustering/correlation/parallel_correlation_util.h"
 #include "in_memory/clustering/gbbs_graph.h"
@@ -77,18 +80,24 @@ absl::StatusOr<EdgeWeightStats> ComputeEdgeWeightStats(
 }  // namespace
 
 absl::StatusOr<InMemoryClusterer::Clustering>
-ParallelModularityClusterer::Cluster(const ClustererConfig& config) const {
-  
+ParallelModularityClusterer::ClusterWithProgressReporting(
+    const ClustererConfig& config,
+    std::optional<gbbs::ReportProgressCallback> report_progress) const {
   if (graph_.Graph() == nullptr) {
     return absl::FailedPreconditionError(
         "'Cluster' cannot be called before 'FinishImport' is called for the "
         "graph");
   }
-  if (graph_.Graph()->n == 0) return InMemoryClusterer::Clustering();
+  if (graph_.Graph()->n == 0) {
+    if (report_progress.has_value()) (*report_progress)(1.0);
+    return InMemoryClusterer::Clustering();
+  }
+  
   InMemoryClusterer::Clustering clustering =
       AllSingletonsClustering(graph_.Graph()->n);
   RETURN_IF_ERROR(
-      ParallelModularityClusterer::RefineClusters(config, &clustering));
+      ParallelModularityClusterer::RefineClustersWithProgressReporting(
+          config, &clustering, std::move(report_progress)));
   return clustering;
 }
 
@@ -121,23 +130,28 @@ absl::StatusOr<ClusteringHelper> GetClusteringHelper(
 }  // namespace
 
 absl::StatusOr<std::vector<NodeId>>
-ParallelModularityClusterer::ClusterAndReturnClusterIds(
-    const graph_mining::in_memory::ClustererConfig& config) const {
+ParallelModularityClusterer::ClusterAndReturnClusterIdsWithProgressReporting(
+    const graph_mining::in_memory::ClustererConfig& config,
+    std::optional<gbbs::ReportProgressCallback> report_progress) const {
   
   if (graph_.Graph() == nullptr) {
     return absl::FailedPreconditionError(
         "'ClusterAndReturnClusterIds' cannot be called before 'FinishImport' "
         "is called for the graph");
   }
-  if (graph_.Graph()->n == 0) return std::vector<NodeId>();
+  if (graph_.Graph()->n == 0) {
+    if (report_progress.has_value()) (*report_progress)(1.0);
+    return std::vector<NodeId>();
+  }
   InMemoryClusterer::Clustering clustering =
       AllSingletonsClustering(graph_.Graph()->n);
   ASSIGN_OR_RETURN(ClusteringHelper helper,
                    GetClusteringHelper(graph_, clustering, config));
   ASSIGN_OR_RETURN(
       std::vector<ClusterId> cluster_ids,
-      ParallelCorrelationClusterer::RefineClusters(clustering, helper));
-  // TODO: b/399828374 - Avoid this conversion by changing the definition of
+      ParallelCorrelationClusterer::RefineClustersWithProgressReporting(
+          clustering, helper, std::move(report_progress)));
+  // TODO: Avoid this conversion by changing the definition of
   // `ClusterId`.
   std::vector<NodeId> cluster_ids_converted(cluster_ids.size());
   parlay::parallel_for(0, cluster_ids.size(), [&](std::size_t i) {
@@ -146,9 +160,9 @@ ParallelModularityClusterer::ClusterAndReturnClusterIds(
   return cluster_ids_converted;
 }
 
-absl::Status ParallelModularityClusterer::RefineClusters(
-    const ClustererConfig& clusterer_config,
-    Clustering* initial_clustering) const {
+absl::Status ParallelModularityClusterer::RefineClustersWithProgressReporting(
+    const ClustererConfig& clusterer_config, Clustering* initial_clustering,
+    std::optional<gbbs::ReportProgressCallback> report_progress) const {
   if (graph_.Graph() == nullptr) {
     return absl::FailedPreconditionError(
         "'RefineClusters' cannot be called before 'FinishImport' is called for "
@@ -157,9 +171,10 @@ absl::Status ParallelModularityClusterer::RefineClusters(
   ASSIGN_OR_RETURN(
       ClusteringHelper helper,
       GetClusteringHelper(graph_, *initial_clustering, clusterer_config));
-  ASSIGN_OR_RETURN(std::vector<ClusterId> cluster_ids,
-                   ParallelCorrelationClusterer::RefineClusters(
-                       *initial_clustering, helper));
+  ASSIGN_OR_RETURN(
+      std::vector<ClusterId> cluster_ids,
+      ParallelCorrelationClusterer::RefineClustersWithProgressReporting(
+          *initial_clustering, helper, std::move(report_progress)));
   *initial_clustering =
       graph_mining::in_memory::OutputIndicesById<ClusterId, NodeId>(
           cluster_ids);

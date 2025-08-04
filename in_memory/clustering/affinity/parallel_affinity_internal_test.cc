@@ -46,6 +46,7 @@ using gbbs::uintE;
 #define ParseTextProtoOrDie(STR) PARSE_TEXT_PROTO(STR)
 using ::graph_mining::in_memory::AffinityClustererConfig;
 using ::testing::ElementsAreArray;
+using ::testing::HasSubstr;
 using ::testing::IsEmpty;
 using ::testing::UnorderedElementsAreArray;
 
@@ -71,6 +72,67 @@ class FindFinishedClustersTest : public ParallelAffinityInternalTest {};
 class ComputeFinishedClusterStatsTest : public ParallelAffinityInternalTest {};
 class EnforceMaxClusterSizeTest : public ParallelAffinityInternalTest {};
 
+using CompressGraphDeathTest = CompressGraphTest;
+
+TEST_F(CompressGraphDeathTest,
+       NegativeAverageMaxDegreeBoundedWeightMultiplier) {
+  using GbbsEdge = std::tuple<gbbs::uintE, float>;
+  int num_vertices = 3;
+  int num_edges = 4;
+  std::vector<GbbsEdge> edges({std::make_tuple(uintE{1}, float{1}),
+                               std::make_tuple(uintE{2}, float{2}),
+                               std::make_tuple(uintE{0}, float{1}),
+                               std::make_tuple(uintE{0}, float{2})});
+  std::vector<gbbs::symmetric_vertex<float>> v(
+      {gbbs::symmetric_vertex<float>(&(edges[0]), gbbs::vertex_data{0, 2}, 0),
+       gbbs::symmetric_vertex<float>(&(edges[2]), gbbs::vertex_data{0, 1}, 1),
+       gbbs::symmetric_vertex<float>(&(edges[3]), gbbs::vertex_data{0, 1}, 2)});
+  auto G = gbbs::symmetric_ptr_graph<gbbs::symmetric_vertex, float>(
+      num_vertices, num_edges, v.data(), []() {});
+
+  std::vector<gbbs::uintE> cluster_ids = {0, 2, 2};
+  std::vector<double> node_weights;
+  EXPECT_DEATH(
+      auto compressed_graph = CompressGraph(
+          G, node_weights, cluster_ids,
+          ParseTextProtoOrDie(
+              "edge_aggregation_function: AVERAGE_WITH_MAX_DEGREE_BOUNDED "
+              "max_degree_bounded_weight_multiplier: -1.0 "
+              "weight_threshold: 1.0")),
+      HasSubstr("Check failed: "
+                "affinity_config.max_degree_bounded_weight_multiplier()"
+                " > 0 (-1 vs. 0)"));
+}
+
+TEST_F(CompressGraphDeathTest, ZeroAverageMaxDegreeBoundedWeightMultiplier) {
+  using GbbsEdge = std::tuple<gbbs::uintE, float>;
+  int num_vertices = 3;
+  int num_edges = 4;
+  std::vector<GbbsEdge> edges({std::make_tuple(uintE{1}, float{1}),
+                               std::make_tuple(uintE{2}, float{2}),
+                               std::make_tuple(uintE{0}, float{1}),
+                               std::make_tuple(uintE{0}, float{2})});
+  std::vector<gbbs::symmetric_vertex<float>> v(
+      {gbbs::symmetric_vertex<float>(&(edges[0]), gbbs::vertex_data{0, 2}, 0),
+       gbbs::symmetric_vertex<float>(&(edges[2]), gbbs::vertex_data{0, 1}, 1),
+       gbbs::symmetric_vertex<float>(&(edges[3]), gbbs::vertex_data{0, 1}, 2)});
+  auto G = gbbs::symmetric_ptr_graph<gbbs::symmetric_vertex, float>(
+      num_vertices, num_edges, v.data(), []() {});
+
+  std::vector<gbbs::uintE> cluster_ids = {0, 2, 2};
+  std::vector<double> node_weights;
+  EXPECT_DEATH(
+      auto compressed_graph = CompressGraph(
+          G, node_weights, cluster_ids,
+          ParseTextProtoOrDie(
+              "edge_aggregation_function: AVERAGE_WITH_MAX_DEGREE_BOUNDED "
+              "max_degree_bounded_weight_multiplier: 0.0 "
+              "weight_threshold: 1.0")),
+      HasSubstr("Check failed: "
+                "affinity_config.max_degree_bounded_weight_multiplier()"
+                " > 0 (0 vs. 0)"));
+}
+
 TEST_F(CompressGraphTest, EdgeAggregationThreeNodes) {
   using GbbsEdge = std::tuple<gbbs::uintE, float>;
   int num_vertices = 3;
@@ -95,7 +157,15 @@ TEST_F(CompressGraphTest, EdgeAggregationThreeNodes) {
             {"edge_aggregation_function: SUM weight_threshold: 1.0", 3.0},
             {"edge_aggregation_function: MAX weight_threshold: 1.0", 2.0},
             {"edge_aggregation_function: CUT_SPARSITY weight_threshold: 1.0",
-             3.0}})) {
+             3.0},
+            {"edge_aggregation_function: AVERAGE_WITH_MAX_DEGREE_BOUNDED "
+             "max_degree_bounded_weight_multiplier: 1.0 "
+             "weight_threshold: 1.0",
+             3.0},
+            {"edge_aggregation_function: AVERAGE_WITH_MAX_DEGREE_BOUNDED "
+             "max_degree_bounded_weight_multiplier: 3.0 "
+             "weight_threshold: 2.0",
+             1.5}})) {
     ASSERT_OK_AND_ASSIGN(
         auto compressed_graph,
         CompressGraph(G, node_weights, cluster_ids, clusterer_config));
@@ -135,7 +205,15 @@ TEST_F(CompressGraphTest, EdgeAggregationFourNodes) {
             {"edge_aggregation_function: SUM weight_threshold: 1.0", 6.0},
             {"edge_aggregation_function: MAX weight_threshold: 1.0", 4.0},
             {"edge_aggregation_function: CUT_SPARSITY weight_threshold: 1.0",
-             3.0}})) {
+             3.0},
+            {"edge_aggregation_function: AVERAGE_WITH_MAX_DEGREE_BOUNDED "
+             "max_degree_bounded_weight_multiplier: 1.0 "
+             "weight_threshold: 1.0",
+             3.0},
+            {"edge_aggregation_function: AVERAGE_WITH_MAX_DEGREE_BOUNDED "
+             "max_degree_bounded_weight_multiplier: 3.0 "
+             "weight_threshold: 2.0",
+             1.5}})) {
     ASSERT_OK_AND_ASSIGN(
         auto compressed_graph,
         CompressGraph(G, node_weights, cluster_ids, clusterer_config));
@@ -173,7 +251,15 @@ TEST_F(CompressGraphTest, EdgeAggregationThreeNodesWithNodeWeights) {
             {"edge_aggregation_function: SUM weight_threshold: 1.0", 3.0},
             {"edge_aggregation_function: MAX weight_threshold: 1.0", 2.0},
             {"edge_aggregation_function: CUT_SPARSITY weight_threshold: 1.0",
-             3.0}})) {
+             3.0},
+            {"edge_aggregation_function: AVERAGE_WITH_MAX_DEGREE_BOUNDED "
+             "max_degree_bounded_weight_multiplier: 1.0 "
+             "weight_threshold: 1.0",
+             3.0},
+            {"edge_aggregation_function: AVERAGE_WITH_MAX_DEGREE_BOUNDED "
+             "max_degree_bounded_weight_multiplier: 10.0 "
+             "weight_threshold: 1.0",
+             1.625}})) {
     ASSERT_OK_AND_ASSIGN(
         auto compressed_graph,
         CompressGraph(G, node_weights, cluster_ids, clusterer_config));
@@ -213,7 +299,15 @@ TEST_F(CompressGraphTest, EdgeAggregationFourNodesWithNodeWeights) {
             {"edge_aggregation_function: SUM weight_threshold: 1.0", 6.0},
             {"edge_aggregation_function: MAX weight_threshold: 1.0", 4.0},
             {"edge_aggregation_function: CUT_SPARSITY weight_threshold: 1.0",
-             2.0}})) {
+             2.0},
+            {"edge_aggregation_function: AVERAGE_WITH_MAX_DEGREE_BOUNDED "
+             "max_degree_bounded_weight_multiplier: 1.0 "
+             "weight_threshold: 1.0",
+             2.0},
+            {"edge_aggregation_function: AVERAGE_WITH_MAX_DEGREE_BOUNDED "
+             "max_degree_bounded_weight_multiplier: 10.0 "
+             "weight_threshold: 1.0",
+             1.2}})) {
     ASSERT_OK_AND_ASSIGN(
         auto compressed_graph,
         CompressGraph(G, node_weights, cluster_ids, clusterer_config));

@@ -12,9 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-load("@com_google_protobuf//bazel:cc_proto_library.bzl", "cc_proto_library")
-load("@com_google_protobuf//bazel:proto_library.bzl", "proto_library")
-load("@com_google_protobuf//bazel:py_proto_library.bzl", "py_proto_library")
+load("@protobuf//bazel:cc_proto_library.bzl", "cc_proto_library")
+load("@protobuf//bazel:proto_library.bzl", "proto_library")
+load("@protobuf//bazel:py_proto_library.bzl", "py_proto_library")
 
 package(
         default_visibility = ["//visibility:public"],
@@ -27,11 +27,11 @@ cc_library(
         "//in_memory:status_macros",
         "//in_memory/clustering:in_memory_clusterer",
         "//in_memory/connected_components:asynchronous_union_find",
-        "@com_google_absl//absl/base:core_headers",
-        "@com_google_absl//absl/status",
-        "@com_google_absl//absl/status:statusor",
-        "@com_google_absl//absl/strings",
-        "@com_google_absl//absl/types:span",
+        "@abseil-cpp//absl/base:core_headers",
+        "@abseil-cpp//absl/status",
+        "@abseil-cpp//absl/status:statusor",
+        "@abseil-cpp//absl/strings",
+        "@abseil-cpp//absl/types:span",
         "@parlaylib//parlay:sequence",
     ],
 )
@@ -46,9 +46,10 @@ cc_library(
         "//in_memory/clustering:in_memory_clusterer",
         "//in_memory/parallel:parallel_sequence_ops",
         "//in_memory/parallel:scheduler",
-        "@com_google_absl//absl/base:nullability",
-        "@com_google_absl//absl/status:statusor",
-        "@com_google_absl//absl/types:span",
+        "@abseil-cpp//absl/base:nullability",
+        "@abseil-cpp//absl/status:statusor",
+        "@abseil-cpp//absl/types:span",
+        "@com_github_gbbs//gbbs/helpers:progress_reporting",
         "@parlaylib//parlay:parallel",
     ],
     alwayslink = 1,

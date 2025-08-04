@@ -18,8 +18,8 @@
 // WARNING: The interfaces in this file are experimental and are liable to
 // change.
 
-#ifndef RESEARCH_GRAPH_IN_MEMORY_PARALLEL_PARALLEL_SEQUENCE_OPS_H_
-#define RESEARCH_GRAPH_IN_MEMORY_PARALLEL_PARALLEL_SEQUENCE_OPS_H_
+#ifndef THIRD_PARTY_GRAPH_MINING_IN_MEMORY_PARALLEL_PARALLEL_SEQUENCE_OPS_H_
+#define THIRD_PARTY_GRAPH_MINING_IN_MEMORY_PARALLEL_PARALLEL_SEQUENCE_OPS_H_
 
 #include <cstddef>
 #include <functional>
@@ -260,4 +260,4 @@ parlay::sequence<A> ParallelCountSort(
 
 }  // namespace graph_mining::in_memory
 
-#endif  // RESEARCH_GRAPH_IN_MEMORY_PARALLEL_PARALLEL_SEQUENCE_OPS_H_
+#endif  // THIRD_PARTY_GRAPH_MINING_IN_MEMORY_PARALLEL_PARALLEL_SEQUENCE_OPS_H_

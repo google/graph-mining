@@ -12,9 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-load("@com_google_protobuf//bazel:cc_proto_library.bzl", "cc_proto_library")
-load("@com_google_protobuf//bazel:proto_library.bzl", "proto_library")
-load("@com_google_protobuf//bazel:py_proto_library.bzl", "py_proto_library")
+load("@protobuf//bazel:cc_proto_library.bzl", "cc_proto_library")
+load("@protobuf//bazel:proto_library.bzl", "proto_library")
+load("@protobuf//bazel:py_proto_library.bzl", "py_proto_library")
 
 package(
     default_visibility = ["//visibility:public"],
@@ -29,12 +29,12 @@ cc_library(
     deps = [
         ":in_memory_clusterer",
         "//in_memory:status_macros",
-        "@com_google_absl//absl/container:flat_hash_map",
-        "@com_google_absl//absl/flags:flag",
-        "@com_google_absl//absl/log:absl_check",
-        "@com_google_absl//absl/status",
-        "@com_google_absl//absl/strings",
-        "@com_google_absl//absl/synchronization",
+        "@abseil-cpp//absl/container:flat_hash_map",
+        "@abseil-cpp//absl/flags:flag",
+        "@abseil-cpp//absl/log:absl_check",
+        "@abseil-cpp//absl/status",
+        "@abseil-cpp//absl/strings",
+        "@abseil-cpp//absl/synchronization",
     ],
 )
 
@@ -47,11 +47,12 @@ cc_library(
         ":dendrogram",
         ":types",
         "//in_memory:status_macros",
-        "@com_google_absl//absl/base:nullability",
-        "@com_google_absl//absl/memory",
-        "@com_google_absl//absl/status",
-        "@com_google_absl//absl/status:statusor",
-        "@com_google_absl//absl/strings",
+        "@abseil-cpp//absl/base:nullability",
+        "@abseil-cpp//absl/memory",
+        "@abseil-cpp//absl/status",
+        "@abseil-cpp//absl/status:statusor",
+        "@abseil-cpp//absl/strings",
+        "@com_github_gbbs//gbbs/helpers:progress_reporting",
     ],
 )
 
@@ -67,15 +68,15 @@ cc_library(
         "//in_memory/parallel:scheduler",
         "//in_memory/parallel:streaming_writer",
         "//utils/status:thread_safe_status",
+        "@abseil-cpp//absl/log:check",
+        "@abseil-cpp//absl/status",
+        "@abseil-cpp//absl/status:statusor",
+        "@abseil-cpp//absl/strings",
+        "@abseil-cpp//absl/synchronization",
         "@com_github_gbbs//gbbs:bridge",
         "@com_github_gbbs//gbbs:graph",
         "@com_github_gbbs//gbbs:macros",
         "@com_github_gbbs//gbbs:vertex",
-        "@com_google_absl//absl/log:check",
-        "@com_google_absl//absl/status",
-        "@com_google_absl//absl/status:statusor",
-        "@com_google_absl//absl/strings",
-        "@com_google_absl//absl/synchronization",
         "@parlaylib//parlay:parallel",
         "@parlaylib//parlay:sequence",
     ],
@@ -102,11 +103,11 @@ cc_library(
         "//in_memory:status_macros",
         "//in_memory/connected_components:asynchronous_union_find",
         "//utils:math",
-        "@com_google_absl//absl/container:flat_hash_map",
-        "@com_google_absl//absl/log:absl_check",
-        "@com_google_absl//absl/status",
-        "@com_google_absl//absl/status:statusor",
-        "@com_google_absl//absl/strings:str_format",
+        "@abseil-cpp//absl/container:flat_hash_map",
+        "@abseil-cpp//absl/log:absl_check",
+        "@abseil-cpp//absl/status",
+        "@abseil-cpp//absl/status:statusor",
+        "@abseil-cpp//absl/strings:str_format",
     ],
 )
 
@@ -119,10 +120,10 @@ cc_library(
         ":dendrogram",
         ":graph",
         "//in_memory:status_macros",
-        "@com_google_absl//absl/log:absl_check",
-        "@com_google_absl//absl/status",
-        "@com_google_absl//absl/strings",
-        "@com_google_absl//absl/strings:str_format",
+        "@abseil-cpp//absl/log:absl_check",
+        "@abseil-cpp//absl/status",
+        "@abseil-cpp//absl/strings",
+        "@abseil-cpp//absl/strings:str_format",
     ],
 )
 
@@ -132,13 +133,13 @@ cc_library(
     hdrs = ["clustering_utils.h"],
     deps = [
         ":types",
-        "@com_google_absl//absl/container:flat_hash_map",
-        "@com_google_absl//absl/container:flat_hash_set",
-        "@com_google_absl//absl/log:absl_check",
-        "@com_google_absl//absl/status",
-        "@com_google_absl//absl/status:statusor",
-        "@com_google_absl//absl/strings",
-        "@com_google_absl//absl/types:span",
+        "@abseil-cpp//absl/container:flat_hash_map",
+        "@abseil-cpp//absl/container:flat_hash_set",
+        "@abseil-cpp//absl/log:absl_check",
+        "@abseil-cpp//absl/status",
+        "@abseil-cpp//absl/status:statusor",
+        "@abseil-cpp//absl/strings",
+        "@abseil-cpp//absl/types:span",
         "@parlaylib//parlay:delayed_sequence",
         "@parlaylib//parlay:parallel",
         "@parlaylib//parlay:primitives",
@@ -161,8 +162,8 @@ cc_library(
         ":types",
         "//in_memory:status_macros",
         "//in_memory/connected_components:asynchronous_union_find",
-        "@com_google_absl//absl/log:absl_check",
-        "@com_google_absl//absl/status:statusor",
+        "@abseil-cpp//absl/log:absl_check",
+        "@abseil-cpp//absl/status:statusor",
     ],
 )
 
@@ -173,9 +174,9 @@ cc_library(
         ":parallel_clustered_graph_internal",
         ":parallel_dendrogram",
         ":types",
+        "@abseil-cpp//absl/container:flat_hash_map",
+        "@abseil-cpp//absl/log:absl_check",
         "@com_github_gbbs//gbbs:macros",
-        "@com_google_absl//absl/container:flat_hash_map",
-        "@com_google_absl//absl/log:absl_check",
         "@parlaylib//parlay:sequence",
     ],
 )
@@ -184,11 +185,11 @@ cc_library(
     name = "parallel_clustered_graph_internal",
     hdrs = ["parallel_clustered_graph_internal.h"],
     deps = [
+        "@abseil-cpp//absl/log:absl_check",
+        "@abseil-cpp//absl/types:span",
         "@com_github_gbbs//gbbs",
         "@com_github_gbbs//gbbs:bridge",
         "@com_github_gbbs//gbbs:macros",
-        "@com_google_absl//absl/log:absl_check",
-        "@com_google_absl//absl/types:span",
     ],
 )
 
@@ -219,13 +220,13 @@ cc_library(
         "//in_memory/parallel:parallel_graph_utils",
         "//in_memory/parallel:streaming_writer",
         "//utils/status:thread_safe_status",
+        "@abseil-cpp//absl/container:flat_hash_set",
+        "@abseil-cpp//absl/log:absl_check",
+        "@abseil-cpp//absl/status",
+        "@abseil-cpp//absl/strings",
         "@com_github_gbbs//gbbs",
         "@com_github_gbbs//gbbs:bridge",
         "@com_github_gbbs//gbbs:macros",
-        "@com_google_absl//absl/container:flat_hash_set",
-        "@com_google_absl//absl/log:absl_check",
-        "@com_google_absl//absl/status",
-        "@com_google_absl//absl/strings",
         "@parlaylib//parlay:parallel",
         "@parlaylib//parlay:primitives",
         "@parlaylib//parlay:sequence",
@@ -242,7 +243,6 @@ proto_library(
         "//in_memory/clustering/coconductance:coconductance_proto",
         "//in_memory/clustering/correlation:correlation_proto",
         "//in_memory/clustering/correlation:modularity_proto",
-        "//in_memory/clustering/label_propagation:label_propagation_proto",
         "//in_memory/clustering/parline:parline_proto",
     ],
 )
@@ -259,8 +259,8 @@ cc_library(
     deps = [
         ":graph",
         ":in_memory_clusterer",
-        "@com_google_absl//absl/container:flat_hash_map",
-        "@com_google_absl//absl/log:absl_check",
+        "@abseil-cpp//absl/container:flat_hash_map",
+        "@abseil-cpp//absl/log:absl_check",
     ],
 )
 
@@ -276,13 +276,14 @@ cc_library(
         ":types",
         "//in_memory:status_macros",
         "//in_memory/parallel:parallel_sequence_ops",
-        "@com_google_absl//absl/container:flat_hash_set",
-        "@com_google_absl//absl/log",
-        "@com_google_absl//absl/log:absl_check",
-        "@com_google_absl//absl/log:absl_log",
-        "@com_google_absl//absl/status:statusor",
-        "@com_google_absl//absl/strings",
-        "@com_google_googletest//:gtest",
+        "@abseil-cpp//absl/container:flat_hash_set",
+        "@abseil-cpp//absl/log",
+        "@abseil-cpp//absl/log:absl_check",
+        "@abseil-cpp//absl/log:absl_log",
+        "@abseil-cpp//absl/status:statusor",
+        "@abseil-cpp//absl/strings",
+        "@com_github_gbbs//gbbs/helpers:progress_reporting",
+        "@googletest//:gtest",
     ],
 )
 
@@ -294,7 +295,7 @@ cc_library(
     deps = [
         "@com_github_gbbs//gbbs:graph",
         "@com_github_gbbs//gbbs:macros",
-        "@com_google_googletest//:gtest",
+        "@googletest//:gtest",
     ],
 )
 
@@ -302,7 +303,7 @@ cc_library(
     name = "tiebreaking",
     hdrs = ["tiebreaking.h"],
     deps = [
-        "@com_google_absl//absl/strings",
+        "@abseil-cpp//absl/strings",
                "@farmhash_archive//:farmhash",
     ],
 )
@@ -314,8 +315,8 @@ cc_library(
         ":types",
         "//in_memory/connected_components:asynchronous_union_find",
         "//utils:math",
+        "@abseil-cpp//absl/log:absl_check",
         "@com_github_gbbs//gbbs:bridge",
         "@com_github_gbbs//gbbs:macros",
-        "@com_google_absl//absl/log:absl_check",
     ],
 )

@@ -185,10 +185,7 @@ absl::Status UndirectedConverterGraph::CopyGraph() const {
       adjacency_list.outgoing_edges.emplace_back(std::get<1>(edges_[j]),
                                                  std::get<2>(edges_[j]));
     }
-    auto status = out_graph_->Import(std::move(adjacency_list));
-    if (!status.ok()) {
-      import_status.Update(status);
-    }
+    import_status.Update(out_graph_->Import(std::move(adjacency_list)));
   });
   RETURN_IF_ERROR(import_status.status());
 
@@ -197,7 +194,7 @@ absl::Status UndirectedConverterGraph::CopyGraph() const {
 
 namespace {
 
-// Sparifies the edge array.
+// Sparsifies the edge array.
 //
 // This function assumes that the input `edges` contains edges of an undirected
 // graph.

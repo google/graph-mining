@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef RESEARCH_GRAPH_IN_MEMORY_CLUSTERING_GBBS_GRAPH_TEST_UTILS_H_
-#define RESEARCH_GRAPH_IN_MEMORY_CLUSTERING_GBBS_GRAPH_TEST_UTILS_H_
+#ifndef THIRD_PARTY_GRAPH_MINING_IN_MEMORY_CLUSTERING_GBBS_GRAPH_TEST_UTILS_H_
+#define THIRD_PARTY_GRAPH_MINING_IN_MEMORY_CLUSTERING_GBBS_GRAPH_TEST_UTILS_H_
 
 #include <tuple>
 #include <vector>
@@ -34,4 +34,4 @@ void CheckGbbsGraph(
 
 }  // namespace graph_mining::in_memory
 
-#endif  // RESEARCH_GRAPH_IN_MEMORY_CLUSTERING_GBBS_GRAPH_TEST_UTILS_H_
+#endif  // THIRD_PARTY_GRAPH_MINING_IN_MEMORY_CLUSTERING_GBBS_GRAPH_TEST_UTILS_H_

@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef RESEARCH_GRAPH_IN_MEMORY_CLUSTERING_CLUSTERERS_PARHAC_INTERNAL_H_
-#define RESEARCH_GRAPH_IN_MEMORY_CLUSTERING_CLUSTERERS_PARHAC_INTERNAL_H_
+#ifndef THIRD_PARTY_GRAPH_MINING_IN_MEMORY_CLUSTERING_HAC_PARHAC_INTERNAL_H_
+#define THIRD_PARTY_GRAPH_MINING_IN_MEMORY_CLUSTERING_HAC_PARHAC_INTERNAL_H_
 
 #include "absl/log/absl_check.h"
 #include "absl/random/random.h"
@@ -325,4 +325,4 @@ std::pair<size_t, size_t> ProcessHacBucketRandomized(
 
 }  // namespace graph_mining::in_memory
 
-#endif  // RESEARCH_GRAPH_IN_MEMORY_CLUSTERING_CLUSTERERS_PARHAC_INTERNAL_H_
+#endif  // THIRD_PARTY_GRAPH_MINING_IN_MEMORY_CLUSTERING_HAC_PARHAC_INTERNAL_H_

@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef RESEARCH_GRAPH_IN_MEMORY_CLUSTERING_CLUSTERERS_TERAHAC_H_
-#define RESEARCH_GRAPH_IN_MEMORY_CLUSTERING_CLUSTERERS_TERAHAC_H_
+#ifndef THIRD_PARTY_GRAPH_MINING_IN_MEMORY_CLUSTERING_HAC_TERAHAC_H_
+#define THIRD_PARTY_GRAPH_MINING_IN_MEMORY_CLUSTERING_HAC_TERAHAC_H_
 
 #include <algorithm>
 #include <iterator>
@@ -65,4 +65,4 @@ class TeraHacClusterer : public InMemoryClusterer {
 
 }  // namespace graph_mining::in_memory
 
-#endif  // RESEARCH_GRAPH_IN_MEMORY_CLUSTERING_CLUSTERERS_TERAHAC_H_
+#endif  // THIRD_PARTY_GRAPH_MINING_IN_MEMORY_CLUSTERING_HAC_TERAHAC_H_

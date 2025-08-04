@@ -1,0 +1,53 @@
+"""Bzlmod module for graph_mining."""
+
+module(
+    name = "graph_mining",
+    version = "0.0.1",
+    compatibility_level = 1,
+)
+
+bazel_dep(name = "abseil-cpp", version = "20250512.0")
+bazel_dep(name = "protobuf", version = "30.1")
+bazel_dep(name = "rules_java", version = "7.6.0")
+bazel_dep(name = "rules_cc", version = "0.0.9")
+bazel_dep(name = "googletest", version = "1.11.0")
+bazel_dep(name = "bazel_skylib", version = "1.5.0")
+bazel_dep(name = "platforms", version = "0.0.8")
+
+http_archive = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+git_repository = use_repo_rule("@bazel_tools//tools/build_defs/repo:git.bzl", "git_repository")
+
+FARMHASH_COMMIT = "0d859a811870d10f53a594927d0d0b97573ad06d"
+FARMHASH_SHA256 = "18392cf0736e1d62ecbb8d695c31496b6507859e8c75541d7ad0ba092dc52115"
+
+http_archive(
+    name = "farmhash_archive",
+    build_file = "//utils:farmhash.BUILD",
+    sha256 = FARMHASH_SHA256,
+    strip_prefix = "farmhash-{commit}".format(commit = FARMHASH_COMMIT),
+    urls = ["https://github.com/google/farmhash/archive/{commit}.tar.gz".format(commit = FARMHASH_COMMIT)],
+)
+
+git_repository(
+    name = "com_github_gbbs",
+    remote = "https://github.com/ParAlg/gbbs.git",
+    commit = "bd48872385ad907010417bfa939f4fca04e563b8",
+)
+
+git_repository(
+    name = "parlaylib",
+    remote = "https://github.com/ParAlg/parlaylib.git",
+    commit = "352f5367a6b3bd2f0c6f05882cdd02e978e349ea",
+    strip_prefix = "include/",
+)
+
+http_archive(
+    name = "eigen",
+    build_file = "//utils:eigen.BUILD",
+    sha256 = "ca7beac153d4059c02c8fc59816c82d54ea47fe58365e8aded4082ded0b820c4",
+    strip_prefix = "eigen-eigen-f3a22f35b044",
+    urls = [
+        "http://mirror.bazel.build/bitbucket.org/eigen/eigen/get/f3a22f35b044.tar.gz",
+        "https://bitbucket.org/eigen/eigen/get/f3a22f35b044.tar.gz",
+    ],
+)

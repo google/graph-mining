@@ -1,2 +1,2 @@
-# Use C++20
+# Use C++20.
 build --cxxopt=-std=c++20 --enable_workspace --incompatible_enable_proto_toolchain_resolution

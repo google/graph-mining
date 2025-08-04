@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef RESEARCH_GRAPH_CLUSTERING_UTIL_DYNAMIC_WEIGHT_THRESHOLD_H_
-#define RESEARCH_GRAPH_CLUSTERING_UTIL_DYNAMIC_WEIGHT_THRESHOLD_H_
+#ifndef THIRD_PARTY_GRAPH_MINING_IN_MEMORY_CLUSTERING_AFFINITY_DYNAMIC_WEIGHT_THRESHOLD_H_
+#define THIRD_PARTY_GRAPH_MINING_IN_MEMORY_CLUSTERING_AFFINITY_DYNAMIC_WEIGHT_THRESHOLD_H_
 
 #include "absl/status/statusor.h"
 #include "in_memory/clustering/affinity/dynamic_weight_threshold.pb.h"
@@ -28,4 +28,4 @@ absl::StatusOr<double> DynamicWeightThreshold(
 
 }  // namespace graph_mining::in_memory
 
-#endif  // RESEARCH_GRAPH_CLUSTERING_UTIL_DYNAMIC_WEIGHT_THRESHOLD_H_
+#endif  // THIRD_PARTY_GRAPH_MINING_IN_MEMORY_CLUSTERING_AFFINITY_DYNAMIC_WEIGHT_THRESHOLD_H_

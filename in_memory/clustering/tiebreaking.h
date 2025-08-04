@@ -15,6 +15,8 @@
 #ifndef THIRD_PARTY_GRAPH_MINING_IN_MEMORY_CLUSTERING_TIEBREAKING_H_
 #define THIRD_PARTY_GRAPH_MINING_IN_MEMORY_CLUSTERING_TIEBREAKING_H_
 
+#include <algorithm>
+#include <cstdint>
 #include <limits>
 #include <optional>
 #include <tuple>
@@ -58,12 +60,22 @@ class MaxWeightTiebreaker {
    if (salt_.has_value()) {
      fingerprint = util::Hash64WithSeed(first_v, second_v);
    }
-    if (std::tie(weight, fingerprint) <
-        std::tie(max_weight_, best_fingerprint_)) {
+    auto comparison_result = std::tie(weight, fingerprint) <=>
+                             std::tie(max_weight_, best_fingerprint_);
+
+    if (comparison_result < 0) {
       return false;
+    } else if (comparison_result > 0) {
+      max_weight_ = weight;
+      best_fingerprint_ = fingerprint;
+      best_edge_is_unique_ = true;
+    } else if (best_edge_is_unique_.has_value()) {
+      best_edge_is_unique_ = false;
+    } else {
+      // We've seen a single edge, so the best edge is unique.
+      best_edge_is_unique_ = true;
     }
-    max_weight_ = weight;
-    best_fingerprint_ = fingerprint;
+
     return true;
   }
 
@@ -71,10 +83,17 @@ class MaxWeightTiebreaker {
   // was not called yet.
   double MaxWeight() const { return max_weight_; }
 
+  // Returns true if the best edge is unique, i.e., there is no other edge with
+  // the same weight and fingerprint. In the corner case where
+  // `IsMaxWeightSoFar` was never called, returns true (this choice is
+  // arbitrary).
+  bool BestEdgeIsUnique() const { return best_edge_is_unique_.value_or(true); }
+
  private:
   std::optional<uint64_t> salt_;
   double max_weight_ = -std::numeric_limits<double>::infinity();
   uint64_t best_fingerprint_ = 0;
+  std::optional<bool> best_edge_is_unique_;
 };
 
 }  // namespace graph_mining::in_memory

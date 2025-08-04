@@ -12,14 +12,16 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef RESEARCH_GRAPH_IN_MEMORY_CLUSTERING_TEST_UTILS_H_
-#define RESEARCH_GRAPH_IN_MEMORY_CLUSTERING_TEST_UTILS_H_
+#ifndef THIRD_PARTY_GRAPH_MINING_IN_MEMORY_CLUSTERING_TEST_UTILS_H_
+#define THIRD_PARTY_GRAPH_MINING_IN_MEMORY_CLUSTERING_TEST_UTILS_H_
 
 #include <cstdint>
 #include <memory>
+#include <optional>
 
 #include "absl/container/flat_hash_set.h"
 #include "absl/status/statusor.h"
+#include "gbbs/helpers/progress_reporting.h"
 #include "in_memory/clustering/graph.h"
 #include "in_memory/clustering/in_memory_clusterer.h"
 #include "in_memory/clustering/types.h"
@@ -84,20 +86,28 @@ enum class InMemoryClustererMethod {
 // and the method specified by clusterer_method. num_nodes should be the number
 // of nodes in the input graph.
 //
-// When clusterer_method is kVectorOfClusters, the function simply returns the
-// result of the Cluster() method. The argument num_nodes is ignored in that
-// case.
+// When `clusterer_method` is `kVectorOfClusters`, the function simply returns
+// the result of the `Cluster()` method. The argument `num_nodes`is ignored in
+// that case.
 //
-// When clusterer_method is kVectorOfClusterIds, the function invokes the
-// ClusterAndReturnClusterIds() method and converts the result to a Clustering
-// before returning it. Moreover, it checks via EXPECT statements that all
-// cluster IDs returned by ClusterAndReturnClusterIds() are in the range [0,
-// num_nodes - 1].
+// When `clusterer_method` is `kVectorOfClusterIds`, the function invokes the
+// `ClusterAndReturnClusterIds()` method and converts the result to a
+// `Clustering`before returning it. Moreover, it checks via EXPECT statements
+// that all cluster IDs returned by `ClusterAndReturnClusterIds()` are in the
+// range [0, num_nodes - 1].
 absl::StatusOr<Clustering> Cluster(
     const InMemoryClusterer& clusterer,
     const graph_mining::in_memory::ClustererConfig& config,
     InMemoryClustererMethod clusterer_method, int num_nodes);
 
+// Same as above, but allows the caller to supply a `report_progress` callback
+// to be invoked periodically during the clustering algorithm's execution.
+absl::StatusOr<Clustering> Cluster(
+    const InMemoryClustererWithProgressReporting& clusterer,
+    const graph_mining::in_memory::ClustererConfig& config,
+    InMemoryClustererMethod clusterer_method, int num_nodes,
+    std::optional<gbbs::ReportProgressCallback> report_progress);
+
 }  // namespace graph_mining::in_memory
 
-#endif  // RESEARCH_GRAPH_IN_MEMORY_CLUSTERING_TEST_UTILS_H_
+#endif  // THIRD_PARTY_GRAPH_MINING_IN_MEMORY_CLUSTERING_TEST_UTILS_H_

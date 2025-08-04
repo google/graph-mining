@@ -16,13 +16,16 @@
 #define THIRD_PARTY_GRAPH_MINING_IN_MEMORY_CLUSTERING_CORRELATION_PARALLEL_CORRELATION_H_
 
 #include <cstddef>
+#include <optional>
 #include <vector>
 
 #include "absl/base/attributes.h"
 #include "absl/base/nullability.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
+#include "gbbs/helpers/progress_reporting.h"
 #include "gbbs/macros.h"
+#include "in_memory/clustering/config.pb.h"
 #include "in_memory/clustering/correlation/parallel_correlation_util.h"
 #include "in_memory/clustering/gbbs_graph.h"
 #include "in_memory/clustering/in_memory_clusterer.h"
@@ -33,32 +36,48 @@ namespace graph_mining::in_memory {
 // objective. See comment above CorrelationClustererConfig in
 // ../config.proto for more. This uses the CorrelationClustererConfig proto.
 // Also, note that the input graph is required to be undirected.
-class ParallelCorrelationClusterer : public InMemoryClusterer {
+class ParallelCorrelationClusterer
+    : public InMemoryClustererWithProgressReporting {
  public:
   using ClusterId = gbbs::uintE;
 
-  ~ParallelCorrelationClusterer() override {}
+  ~ParallelCorrelationClusterer() override = default;
 
-  absl::Nonnull<Graph*> MutableGraph() ABSL_ATTRIBUTE_LIFETIME_BOUND override {
+  Graph* absl_nonnull MutableGraph() ABSL_ATTRIBUTE_LIFETIME_BOUND override {
     return &graph_;
   }
 
-  absl::StatusOr<Clustering> Cluster(
-      const graph_mining::in_memory::ClustererConfig& config) const override;
+  absl::StatusOr<Clustering> ClusterWithProgressReporting(
+      const graph_mining::in_memory::ClustererConfig& config,
+      std::optional<gbbs::ReportProgressCallback> report_progress)
+      const override;
 
-  absl::StatusOr<std::vector<NodeId>> ClusterAndReturnClusterIds(
-      const graph_mining::in_memory::ClustererConfig& config) const override;
+  absl::StatusOr<std::vector<NodeId>>
+  ClusterAndReturnClusterIdsWithProgressReporting(
+      const graph_mining::in_memory::ClustererConfig& config,
+      std::optional<gbbs::ReportProgressCallback> report_progress)
+      const override;
 
-  // initial_clustering must include every node in the range
+  // initial_clustering must include every node in the half-open interval
   // [0, number of nodes in MutableGraph()) exactly once.
   absl::Status RefineClusters(
       const graph_mining::in_memory::ClustererConfig& clusterer_config,
-      Clustering* initial_clustering) const override;
+      Clustering* initial_clustering) const final {
+    return RefineClustersWithProgressReporting(
+        clusterer_config, initial_clustering,
+        /*report_progress=*/std::nullopt);
+  };
 
  protected:
-  absl::StatusOr<std::vector<ClusterId>> RefineClusters(
+  virtual absl::Status RefineClustersWithProgressReporting(
+      const graph_mining::in_memory::ClustererConfig& clusterer_config,
+      Clustering* initial_clustering,
+      std::optional<gbbs::ReportProgressCallback> report_progress) const;
+
+  absl::StatusOr<std::vector<ClusterId>> RefineClustersWithProgressReporting(
       const InMemoryClusterer::Clustering& initial_clustering,
-      ClusteringHelper& initial_helper) const;
+      ClusteringHelper& initial_helper,
+      std::optional<gbbs::ReportProgressCallback> report_progress) const;
 
   // Returns an all-singletons clustering with the given number of nodes.
   static InMemoryClusterer::Clustering AllSingletonsClustering(

@@ -64,8 +64,10 @@ namespace graph_mining::in_memory {
 template <typename GraphType>
 class GbbsOutEdgesOnlyGraph : public InMemoryClusterer::Graph {
  public:
-  // Edge type of the underneath GBBS graph.
+  // Edge type of the underlying GBBS graph.
   using Edge = std::tuple<gbbs::uintE, typename GraphType::weight_type>;
+  // Weight type of the underlying GBBS graph.
+  using Weight = typename GraphType::weight_type;
 
   // Prepares graph for node importing.
   //
@@ -186,7 +188,7 @@ using DirectedOutEdgesGbbsGraph = GbbsOutEdgesOnlyGraph<
 using UnweightedGbbsGraph = GbbsOutEdgesOnlyGraph<
     gbbs::symmetric_ptr_graph<gbbs::symmetric_vertex, gbbs::empty>>;
 
-// Weighted undirected graph with sorted neighbors.
+// Unweighted undirected graph with sorted neighbors.
 class UnweightedSortedNeighborGbbsGraph
     : public GbbsOutEdgesOnlyGraph<
           gbbs::symmetric_ptr_graph<gbbs::symmetric_vertex, gbbs::empty>> {
@@ -244,9 +246,11 @@ inline void SetEdge(std::tuple<gbbs::uintE, gbbs::empty>* edge,
   *edge = std::make_tuple<gbbs::uintE, gbbs::empty>(in_edge.first, {});
 }
 
-inline void SetEdge(std::tuple<gbbs::uintE, float>* edge,
+template <typename EdgeWeightType>
+inline void SetEdge(std::tuple<gbbs::uintE, EdgeWeightType>* edge,
                     std::pair<NodeId, double> in_edge) {
-  *edge = std::make_tuple<gbbs::uintE, float>(in_edge.first, in_edge.second);
+  static_assert(std::is_floating_point_v<EdgeWeightType>);
+  *edge = {in_edge.first, in_edge.second};
 }
 
 }  // namespace internal

@@ -186,6 +186,67 @@ TEST(AffinityTest, EdgeAggregationFunction) {
               ElementsAreArray<Cluster>({{0, 1, 2, 3}}));
 }
 
+TEST(AffinityTest, EdgeAggregationFunctionWithMaxDegreeBounded) {
+  SimpleUndirectedGraph graph;
+  ASSERT_OK(graph.AddEdge(0, 1, 10.0));
+  ASSERT_OK(graph.AddEdge(0, 4, 10.0));
+  ASSERT_OK(graph.AddEdge(1, 4, 10.0));
+  ASSERT_OK(graph.AddEdge(2, 3, 10.0));
+  ASSERT_OK(graph.AddEdge(0, 2, 4.0));
+  auto clusterer = std::make_unique<AffinityClusterer>();
+  ASSERT_OK(CopyGraph(graph, clusterer->MutableGraph()));
+
+  ASSERT_OK_AND_ASSIGN(
+      auto clusters,
+      clusterer->Cluster(PARSE_TEXT_PROTO(
+          "affinity_clusterer_config { "
+          "edge_aggregation_function: AVERAGE_WITH_MAX_DEGREE_BOUNDED "
+          "max_degree_bounded_weight_multiplier: 10.0 "
+          "weight_threshold: 1.0 num_iterations: 2 }")));
+  EXPECT_THAT(CanonicalizeClustering(clusters),
+              ElementsAreArray<Cluster>({{0, 1, 4}, {2, 3}}));
+
+  ASSERT_OK_AND_ASSIGN(
+      clusters,
+      clusterer->Cluster(PARSE_TEXT_PROTO(
+          "affinity_clusterer_config { "
+          "edge_aggregation_function: AVERAGE_WITH_MAX_DEGREE_BOUNDED "
+          "max_degree_bounded_weight_multiplier: 1.0 "
+          "weight_threshold: 1.0 num_iterations: 2 }")));
+  EXPECT_THAT(CanonicalizeClustering(clusters),
+              ElementsAreArray<Cluster>({{0, 1, 2, 3, 4}}));
+
+  // In this case, the first cluster is smaller than the second one.
+  SimpleUndirectedGraph graph_2;
+  ASSERT_OK(graph_2.AddEdge(0, 1, 10.0));
+  ASSERT_OK(graph_2.AddEdge(2, 3, 10.0));
+  ASSERT_OK(graph_2.AddEdge(2, 4, 10.0));
+  ASSERT_OK(graph_2.AddEdge(3, 4, 10.0));
+  ASSERT_OK(graph_2.AddEdge(0, 2, 4.0));
+  clusterer = std::make_unique<AffinityClusterer>();
+  ASSERT_OK(CopyGraph(graph_2, clusterer->MutableGraph()));
+
+  ASSERT_OK_AND_ASSIGN(
+      clusters,
+      clusterer->Cluster(PARSE_TEXT_PROTO(
+          "affinity_clusterer_config { "
+          "edge_aggregation_function: AVERAGE_WITH_MAX_DEGREE_BOUNDED "
+          "max_degree_bounded_weight_multiplier: 10.0 "
+          "weight_threshold: 1.0 num_iterations: 2 }")));
+  EXPECT_THAT(CanonicalizeClustering(clusters),
+              ElementsAreArray<Cluster>({{0, 1}, {2, 3, 4}}));
+
+  ASSERT_OK_AND_ASSIGN(
+      clusters,
+      clusterer->Cluster(PARSE_TEXT_PROTO(
+          "affinity_clusterer_config { "
+          "edge_aggregation_function: AVERAGE_WITH_MAX_DEGREE_BOUNDED "
+          "max_degree_bounded_weight_multiplier: 1.0 "
+          "weight_threshold: 1.0 num_iterations: 2 }")));
+  EXPECT_THAT(CanonicalizeClustering(clusters),
+              ElementsAreArray<Cluster>({{0, 1, 2, 3, 4}}));
+}
+
 TEST(AffinityTest, OutputClusterEarly) {
   SimpleUndirectedGraph graph;
   ASSERT_OK(graph.AddEdge(0, 1, 2.0));

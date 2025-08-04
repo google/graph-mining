@@ -16,6 +16,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstddef>
 #include <functional>
 #include <limits>
 #include <memory>
@@ -24,8 +25,10 @@
 #include <utility>
 #include <vector>
 
+#include "absl/base/attributes.h"
 #include "absl/container/flat_hash_set.h"
 #include "absl/log/absl_check.h"
+#include "absl/status/statusor.h"
 #include "in_memory/clustering/affinity/affinity.pb.h"
 #include "in_memory/clustering/compress_graph.h"
 #include "in_memory/clustering/graph.h"
@@ -69,7 +72,7 @@ absl::StatusOr<std::unique_ptr<SimpleUndirectedGraph>> CompressGraph(
 
   std::unique_ptr<SimpleUndirectedGraph> result;
 
-  // Perform graph compession based on the specified edge aggregation function.
+  // Perform graph compression based on the specified edge aggregation function.
   switch (edge_aggregation) {
     // PERCENTILE and EXPLICIT_AVERAGE edge aggregations require the tracking of
     // all edge weights for each pair of connected clusters.
@@ -187,7 +190,9 @@ absl::StatusOr<std::unique_ptr<SimpleUndirectedGraph>> CompressGraph(
   // Perform rescaling after graph compression for the relevant edge aggregation
   // functions.
   if (edge_aggregation == AffinityClustererConfig::DEFAULT_AVERAGE ||
-      edge_aggregation == AffinityClustererConfig::CUT_SPARSITY) {
+      edge_aggregation == AffinityClustererConfig::CUT_SPARSITY ||
+      edge_aggregation ==
+          AffinityClustererConfig::AVERAGE_WITH_MAX_DEGREE_BOUNDED) {
     for (NodeId i = 0; i < graph.NumNodes(); ++i) {
       for (const auto& edge : result->Neighbors(i)) {
         // Process each undirected edge once and do not add self loops.
@@ -196,10 +201,17 @@ absl::StatusOr<std::unique_ptr<SimpleUndirectedGraph>> CompressGraph(
         double scaling_factor;
         if (edge_aggregation == AffinityClustererConfig::DEFAULT_AVERAGE) {
           scaling_factor = node_weights[i] * node_weights[edge.first];
-        } else {
+        } else if (edge_aggregation == AffinityClustererConfig::CUT_SPARSITY) {
           ABSL_CHECK_EQ(edge_aggregation,
                         AffinityClustererConfig::CUT_SPARSITY);
           scaling_factor = std::min(node_weights[i], node_weights[edge.first]);
+        } else {
+          ABSL_CHECK_GT(clusterer_config.max_degree_bounded_weight_multiplier(),
+                        0);
+          scaling_factor =
+              std::min(clusterer_config.max_degree_bounded_weight_multiplier() *
+                           std::min(node_weights[i], node_weights[edge.first]),
+                       node_weights[i] * node_weights[edge.first]);
         }
         RETURN_IF_ERROR(
             result->SetEdgeWeight(i, edge.first, edge.second / scaling_factor));

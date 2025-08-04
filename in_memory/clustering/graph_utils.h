@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef RESEARCH_GRAPH_IN_MEMORY_CLUSTERING_GRAPH_UTILS_H_
-#define RESEARCH_GRAPH_IN_MEMORY_CLUSTERING_GRAPH_UTILS_H_
+#ifndef THIRD_PARTY_GRAPH_MINING_IN_MEMORY_CLUSTERING_GRAPH_UTILS_H_
+#define THIRD_PARTY_GRAPH_MINING_IN_MEMORY_CLUSTERING_GRAPH_UTILS_H_
 
 #include <functional>
 #include <memory>
@@ -50,4 +50,4 @@ std::unique_ptr<SimpleDirectedGraph> DirectGraphByDegree(
 
 }  // namespace graph_mining::in_memory
 
-#endif  // RESEARCH_GRAPH_IN_MEMORY_CLUSTERING_GRAPH_UTILS_H_
+#endif  // THIRD_PARTY_GRAPH_MINING_IN_MEMORY_CLUSTERING_GRAPH_UTILS_H_

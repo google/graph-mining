@@ -19,6 +19,7 @@
 #include <string>
 #include <vector>
 
+#include "absl/base/nullability.h"
 #include "absl/memory/memory.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
@@ -35,12 +36,6 @@ absl::Status InMemoryClusterer::Graph::PrepareImport(const int64_t num_nodes) {
 
 absl::Status InMemoryClusterer::Graph::FinishImport() {
   return absl::OkStatus();
-}
-
-absl::StatusOr<InMemoryClusterer::Dendrogram>
-InMemoryClusterer::HierarchicalCluster(
-    const graph_mining::in_memory::ClustererConfig& config) const {
-  return absl::UnimplementedError("HierarchicalCluster not implemented.");
 }
 
 absl::StatusOr<std::vector<InMemoryClusterer::Clustering>>

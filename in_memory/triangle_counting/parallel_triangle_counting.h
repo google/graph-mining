@@ -15,6 +15,7 @@
 #ifndef THIRD_PARTY_GRAPH_MINING_IN_MEMORY_TRIANGLE_COUNTING_PARALLEL_TRIANGLE_COUNTING_H_
 #define THIRD_PARTY_GRAPH_MINING_IN_MEMORY_TRIANGLE_COUNTING_PARALLEL_TRIANGLE_COUNTING_H_
 
+#include "absl/status/statusor.h"
 #include "in_memory/clustering/gbbs_graph.h"
 #include "in_memory/clustering/in_memory_clusterer.h"
 

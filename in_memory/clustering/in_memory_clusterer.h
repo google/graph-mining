@@ -25,6 +25,7 @@
 #include "absl/base/nullability.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
+#include "gbbs/helpers/progress_reporting.h"
 #include "in_memory/clustering/config.pb.h"
 #include "in_memory/clustering/dendrogram.h"
 #include "in_memory/clustering/types.h"
@@ -102,7 +103,7 @@ class InMemoryClusterer {
   // format (see dendrogram.h for more).
   using Dendrogram = graph_mining::in_memory::Dendrogram;
 
-  virtual ~InMemoryClusterer() {}
+  virtual ~InMemoryClusterer() = default;
 
   // Accessor to the maintained graph. Use it to build the graph.
   virtual Graph* MutableGraph() = 0;
@@ -123,11 +124,11 @@ class InMemoryClusterer {
   // the graph - 1].
   virtual absl::StatusOr<std::vector<NodeId>> ClusterAndReturnClusterIds(
       const graph_mining::in_memory::ClustererConfig& config) const {
-    // TODO: b/397376625 - Replace this with an actual implementation that
+    // TODO: Replace this with an actual implementation that
     // invokes the Cluster() method and converts the result to the desired
     // format.
     return absl::UnimplementedError(
-        "'ClusterAsClusterIdSequence' is not implemented");
+        "'ClusterAndReturnClusterIds()' is not implemented");
   }
 
   // Same as above, except that it returns a sequence of flat clusterings. The
@@ -147,12 +148,16 @@ class InMemoryClusterer {
   // error status, so callers should ensure that the Clusterer being used
   // implements this method.
   virtual absl::StatusOr<Dendrogram> HierarchicalCluster(
-      const graph_mining::in_memory::ClustererConfig& config) const;
+      const graph_mining::in_memory::ClustererConfig& config) const {
+    return absl::UnimplementedError(
+        "'HierarchicalCluster()' is not implemented.");
+  }
 
   // Refines a list of clusters and redirects the given pointer to new clusters.
   // This function is useful for methods that can refine / operate on an
-  // existing clustering. It does not take ownership of clustering. The default
-  // implementation does nothing and returns OkStatus.
+  // existing clustering. It does not take ownership of clustering.
+  //
+  // The default implementation does nothing and returns OkStatus.
   virtual absl::Status RefineClusters(
       const graph_mining::in_memory::ClustererConfig& config,
       Clustering* clustering) const {
@@ -179,6 +184,49 @@ class InMemoryClusterer {
   // NodeId map set by set_node_id_map(). May be left to nullptr even after
   // initialization.
   const std::vector<std::string>* node_id_map_ = nullptr;
+};
+
+// `InMemoryClusterer` subclass whose implementations are capable of reporting
+// their progress via a `ReportProcess` callback argument supplied to the
+// `ClusterWithProgressReporting()` and
+// `ClusterAndReturnClusterIdsWithProgressReporting()` methods.
+class InMemoryClustererWithProgressReporting : public InMemoryClusterer {
+ public:
+
+  absl::StatusOr<Clustering> Cluster(
+      const graph_mining::in_memory::ClustererConfig& config) const final {
+    return ClusterWithProgressReporting(config,
+                                        /*report_progress=*/std::nullopt);
+  }
+
+  // Like `Cluster(ClustererConfig)`, but implementations capable of reporting
+  // their progress can override this method to perform periodic calls of the
+  // `report_progress` callback (if supplied) to report their progress.
+  virtual absl::StatusOr<Clustering> ClusterWithProgressReporting(
+      const graph_mining::in_memory::ClustererConfig& config,
+      std::optional<gbbs::ReportProgressCallback> report_progress) const = 0;
+
+  absl::StatusOr<std::vector<NodeId>> ClusterAndReturnClusterIds(
+      const graph_mining::in_memory::ClustererConfig& config) const final {
+    return ClusterAndReturnClusterIdsWithProgressReporting(
+        config, /*report_progress=*/std::nullopt);
+  }
+
+  // Like `ClusterAndReturnClusterIds(ClustererConfig)`, but implementations
+  // capable of reporting their progress can override this method to perform
+  // periodic calls of the `report_progress` callback (if supplied) to report
+  // their progress.
+  virtual absl::StatusOr<std::vector<NodeId>>
+  ClusterAndReturnClusterIdsWithProgressReporting(
+      const graph_mining::in_memory::ClustererConfig& config,
+      std::optional<gbbs::ReportProgressCallback> /*report_progress*/)
+      const {
+    // TODO: Replace this with an actual implementation that
+    // invokes the Cluster() method and converts the result to the desired
+    // format.
+    return absl::UnimplementedError(
+        "'ClusterAndReturnClusterIds()' is not implemented");
+  }
 };
 
 }  // namespace in_memory

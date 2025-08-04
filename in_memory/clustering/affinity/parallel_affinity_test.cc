@@ -289,6 +289,26 @@ TEST(ParallelAffinityTest, EdgeAggregationFunction) {
                            "4.0 num_iterations: 2 }")));
   EXPECT_THAT(CanonicalizeClustering(clustering),
               ElementsAreArray<Cluster>({{0, 1, 2, 3}}));
+
+  ASSERT_OK_AND_ASSIGN(
+      clustering,
+      clusterer->Cluster(PARSE_TEXT_PROTO(
+          "affinity_clusterer_config { "
+          "edge_aggregation_function: AVERAGE_WITH_MAX_DEGREE_BOUNDED "
+          "max_degree_bounded_weight_multiplier: 10.0 "
+          "weight_threshold: 1.1 num_iterations: 2 }")));
+  EXPECT_THAT(CanonicalizeClustering(clustering),
+              ElementsAreArray<Cluster>({{0, 1}, {2, 3}}));
+
+  ASSERT_OK_AND_ASSIGN(
+      clustering,
+      clusterer->Cluster(PARSE_TEXT_PROTO(
+          "affinity_clusterer_config { "
+          "edge_aggregation_function: AVERAGE_WITH_MAX_DEGREE_BOUNDED "
+          "max_degree_bounded_weight_multiplier: 10.0 "
+          "weight_threshold: 1.0 num_iterations: 2 }")));
+  EXPECT_THAT(CanonicalizeClustering(clustering),
+              ElementsAreArray<Cluster>({{0, 1, 2, 3}}));
 }
 
 TEST(ParallelAffinityTest, OutputClusterEarly) {

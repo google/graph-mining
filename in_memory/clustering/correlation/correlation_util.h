@@ -15,17 +15,25 @@
 #ifndef THIRD_PARTY_GRAPH_MINING_IN_MEMORY_CLUSTERING_CORRELATION_CORRELATION_UTIL_H_
 #define THIRD_PARTY_GRAPH_MINING_IN_MEMORY_CLUSTERING_CORRELATION_CORRELATION_UTIL_H_
 
+#include <array>
+#include <functional>
 #include <optional>
+#include <utility>
+#include <vector>
 
+#include "absl/container/flat_hash_map.h"
 #include "absl/log/absl_check.h"
 #include "in_memory/clustering/config.pb.h"
+#include "in_memory/clustering/correlation/correlation.pb.h"
 #include "in_memory/clustering/graph.h"
 #include "in_memory/clustering/in_memory_clusterer.h"
+#include "in_memory/clustering/types.h"
 
 namespace graph_mining::in_memory {
 
 // Computes the correlation clustering objective value defined mathematically in
-// ../config.proto.
+// ../config.proto. Dies if the provided clustering has a node ID that is not
+// valid for the graph.
 double CorrelationClusteringObjective(
     const SimpleUndirectedGraph& graph,
     const graph_mining::in_memory::CorrelationClustererConfig& config,
@@ -78,17 +86,21 @@ class EdgeSum {
 //     -resolution. To do so we subtract the number of edges we see in each
 //     category from the max possible number of edges (i.e. the number of edges
 //     we'd have if the graph was complete).
+//
+// For cluster IDs not present in cluster_moving_weights, we assume the
+// corresponding weight is 0.
 template <typename ClusterId>
 std::pair<std::optional<ClusterId>, double> BestMoveFromStats(
     const graph_mining::in_memory::CorrelationClustererConfig& config,
     const std::function<double(ClusterId)>& get_current_cluster_weight,
-    double moving_nodes_weight,
-    absl::flat_hash_map<ClusterId, double>& cluster_moving_weights,
-    EdgeSum class_2_currently_separate, EdgeSum class_1_currently_together,
+    const double moving_nodes_weight,
+    const absl::flat_hash_map<ClusterId, double>& cluster_moving_weights,
+    const EdgeSum& class_2_currently_separate,
+    const EdgeSum& class_1_currently_together,
     const absl::flat_hash_map<ClusterId, EdgeSum>& class_1_together_after) {
-  double change_in_objective = 0;
+  double change_in_objective = 0.0;
 
-  auto half_square = [](const double x) { return x * x / 2; };
+  auto half_square = [](const double x) { return x * x / 2.0; };
   double max_edges = half_square(moving_nodes_weight);
   for (const auto& [cluster, moving_nodes_weight] : cluster_moving_weights) {
     max_edges -= half_square(moving_nodes_weight);
@@ -96,7 +108,7 @@ std::pair<std::optional<ClusterId>, double> BestMoveFromStats(
   change_in_objective +=
       class_2_currently_separate.NetWeight(max_edges, config);
 
-  max_edges = 0;
+  max_edges = 0.0;
   for (const auto& [cluster, moving_nodes_weight] : cluster_moving_weights) {
     max_edges += moving_nodes_weight *
                  (get_current_cluster_weight(cluster) - moving_nodes_weight);
@@ -104,20 +116,23 @@ std::pair<std::optional<ClusterId>, double> BestMoveFromStats(
   change_in_objective -=
       class_1_currently_together.NetWeight(max_edges, config);
 
-  std::pair<std::optional<ClusterId>, double> best_move;
-  best_move.first = std::nullopt;
-  best_move.second = change_in_objective;
+  std::pair<std::optional<ClusterId>, double> best_move = {std::nullopt,
+                                                           change_in_objective};
   for (const auto& [cluster, data] : class_1_together_after) {
-    max_edges = moving_nodes_weight * (get_current_cluster_weight(cluster) -
-                                       cluster_moving_weights[cluster]);
+    const auto cluster_moving_weight_it = cluster_moving_weights.find(cluster);
+    const double cluster_moving_weight =
+        cluster_moving_weight_it == cluster_moving_weights.end()
+            ? 0.0
+            : cluster_moving_weight_it->second;
+    max_edges = moving_nodes_weight *
+                (get_current_cluster_weight(cluster) - cluster_moving_weight);
     // Change in objective if we move the moving nodes to cluster i.
     double overall_change_in_objective =
         change_in_objective + data.NetWeight(max_edges, config);
     if (overall_change_in_objective > best_move.second ||
         (overall_change_in_objective == best_move.second &&
          cluster < best_move.first)) {
-      best_move.first = cluster;
-      best_move.second = overall_change_in_objective;
+      best_move = {cluster, overall_change_in_objective};
     }
   }
   return best_move;
@@ -154,20 +169,28 @@ std::pair<std::optional<ClusterId>, double> BestMoveFromStats(
 // Specifically, in the bipartite case, BestMoveFromStatsForBipartiteGraph
 // computes same-partition-edge related objective compensation and applies it to
 // the baseline objective computed in the same way as BestMoveFromStats.
+//
+// For cluster IDs not present in cluster_moving_weights, we assume the
+// corresponding weight is 0.
+//
+// Dies if config.use_bipartite_objective is false, or if any key of
+// partitioned_cluster_weights or class_1_together_after is not in the range [0,
+// partitioned_cluster_weights.size()).
 template <typename ClusterId>
 std::pair<std::optional<ClusterId>, double> BestMoveFromStatsForBipartiteGraph(
     const graph_mining::in_memory::CorrelationClustererConfig& config,
     const std::function<double(ClusterId)>& get_current_cluster_weight,
     const std::array<double, 2>& moving_nodes_weight,
-    absl::flat_hash_map<ClusterId, std::array<double, 2>>&
+    const absl::flat_hash_map<ClusterId, std::array<double, 2>>&
         cluster_moving_weights,
-    EdgeSum class_2_currently_separate, EdgeSum class_1_currently_together,
+    const EdgeSum& class_2_currently_separate,
+    const EdgeSum& class_1_currently_together,
     const absl::flat_hash_map<ClusterId, EdgeSum>& class_1_together_after,
     const std::vector<std::array<double, 2>>& partitioned_cluster_weights) {
-  double change_in_objective = 0;
+  double change_in_objective = 0.0;
   ABSL_CHECK(config.use_bipartite_objective());
 
-  auto half_square = [](const double x) { return x * x / 2; };
+  auto half_square = [](const double x) { return x * x / 2.0; };
   double total_moving_nodes_weight =
       moving_nodes_weight[0] + moving_nodes_weight[1];
   double max_edges = half_square(total_moving_nodes_weight);
@@ -177,10 +200,12 @@ std::pair<std::optional<ClusterId>, double> BestMoveFromStatsForBipartiteGraph(
   change_in_objective +=
       class_2_currently_separate.NetWeight(max_edges, config);
 
-  max_edges = 0;
-  double bipartite_compensation_loss = 0;
+  max_edges = 0.0;
+  double bipartite_compensation_loss = 0.0;
   for (const auto& [cluster, moving_nodes_weight] : cluster_moving_weights) {
-    auto total_moving_nodes_weight =
+    ABSL_CHECK_GE(cluster, 0);
+    ABSL_CHECK_LT(cluster, partitioned_cluster_weights.size());
+    double total_moving_nodes_weight =
         moving_nodes_weight[0] + moving_nodes_weight[1];
     max_edges +=
         total_moving_nodes_weight *
@@ -196,16 +221,22 @@ std::pair<std::optional<ClusterId>, double> BestMoveFromStatsForBipartiteGraph(
       class_1_currently_together.NetWeight(max_edges, config);
   change_in_objective -= bipartite_compensation_loss;
 
-  std::pair<std::optional<ClusterId>, double> best_move;
-  best_move.first = std::nullopt;
-  best_move.second = change_in_objective;
+  std::pair<std::optional<ClusterId>, double> best_move = {std::nullopt,
+                                                           change_in_objective};
   for (const auto& [cluster, data] : class_1_together_after) {
+    ABSL_CHECK_GE(cluster, 0);
+    ABSL_CHECK_LT(cluster, partitioned_cluster_weights.size());
     double total_moving_nodes_weight =
         moving_nodes_weight[0] + moving_nodes_weight[1];
+    const auto cluster_moving_weights_it = cluster_moving_weights.find(cluster);
+    const std::array<double, 2> cluster_moving_weights_array =
+        cluster_moving_weights_it == cluster_moving_weights.end()
+            ? std::array<double, 2>{0.0, 0.0}
+            : cluster_moving_weights_it->second;
     max_edges =
-        total_moving_nodes_weight * (get_current_cluster_weight(cluster) -
-                                     cluster_moving_weights[cluster][0] -
-                                     cluster_moving_weights[cluster][1]);
+        total_moving_nodes_weight *
+        (get_current_cluster_weight(cluster) - cluster_moving_weights_array[0] -
+         cluster_moving_weights_array[1]);
     // Change in objective if we move the moving nodes to cluster i.
     double overall_change_in_objective =
         change_in_objective + data.NetWeight(max_edges, config);
@@ -214,15 +245,14 @@ std::pair<std::optional<ClusterId>, double> BestMoveFromStatsForBipartiteGraph(
     for (NodePartId i : {0, 1}) {
       overall_change_in_objective += moving_nodes_weight[i] *
                                      (partitioned_cluster_weights[cluster][i] -
-                                      cluster_moving_weights[cluster][i]) *
+                                      cluster_moving_weights_array[i]) *
                                      config.resolution();
     }
 
     if (overall_change_in_objective > best_move.second ||
         (overall_change_in_objective == best_move.second &&
          cluster < best_move.first)) {
-      best_move.first = cluster;
-      best_move.second = overall_change_in_objective;
+      best_move = {cluster, overall_change_in_objective};
     }
   }
   return best_move;

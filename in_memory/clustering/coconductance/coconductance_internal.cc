@@ -15,6 +15,7 @@
 #include "in_memory/clustering/coconductance/coconductance_internal.h"
 
 #include <algorithm>
+#include <cstdlib>
 #include <numeric>
 #include <utility>
 #include <vector>

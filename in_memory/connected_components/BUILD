@@ -12,9 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-load("@com_google_protobuf//bazel:cc_proto_library.bzl", "cc_proto_library")
-load("@com_google_protobuf//bazel:proto_library.bzl", "proto_library")
-load("@com_google_protobuf//bazel:py_proto_library.bzl", "py_proto_library")
+load("@protobuf//bazel:cc_proto_library.bzl", "cc_proto_library")
+load("@protobuf//bazel:proto_library.bzl", "proto_library")
+load("@protobuf//bazel:py_proto_library.bzl", "py_proto_library")
 
 package(
         default_visibility = ["//visibility:public"],
@@ -26,7 +26,7 @@ cc_library(
     name = "asynchronous_union_find",
     hdrs = ["asynchronous_union_find.h"],
     deps = [
+        "@abseil-cpp//absl/types:span",
         "@com_github_gbbs//benchmarks/Connectivity/SimpleUnionAsync:Connectivity",
-        "@com_google_absl//absl/types:span",
     ],
 )

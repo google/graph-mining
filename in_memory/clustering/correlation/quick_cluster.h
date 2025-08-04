@@ -17,9 +17,10 @@
 #include <vector>
 
 #include "absl/functional/function_ref.h"
-#include "absl/random/random.h"
 #include "absl/random/bit_gen_ref.h"
+#include "absl/random/random.h"
 #include "in_memory/clustering/config.pb.h"
+#include "in_memory/clustering/correlation/correlation.pb.h"
 #include "in_memory/clustering/graph.h"
 #include "in_memory/clustering/types.h"
 

@@ -64,6 +64,41 @@ CreateAffinityTestScenarios(std::vector<std::pair<absl::string_view, float>>
   return configs_and_weights;
 }
 
+TEST(CompressGraphTestDeathTest,
+     NegativeAverageMaxDegreeBoundedWeightMultiplier) {
+  SimpleUndirectedGraph graph;
+  ASSERT_OK(graph.AddEdge(0, 1, 1.0));
+
+  std::vector<NodeId> cluster_ids = {0, 1};
+  EXPECT_DEATH(
+      auto compressed_graph = CompressGraph(
+          graph, cluster_ids,
+          PARSE_TEXT_PROTO(
+              "edge_aggregation_function: AVERAGE_WITH_MAX_DEGREE_BOUNDED "
+              "max_degree_bounded_weight_multiplier: -1.0 "
+              "weight_threshold: 1.0")),
+      "Check failed: "
+      "clusterer_config.max_degree_bounded_weight_multiplier\\(\\) > "
+      "0");
+}
+
+TEST(CompressGraphTestDeathTest, ZeroAverageMaxDegreeBoundedWeightMultiplier) {
+  SimpleUndirectedGraph graph;
+  ASSERT_OK(graph.AddEdge(0, 1, 1.0));
+
+  std::vector<NodeId> cluster_ids = {0, 1};
+  EXPECT_DEATH(
+      auto compressed_graph = CompressGraph(
+          graph, cluster_ids,
+          PARSE_TEXT_PROTO(
+              "edge_aggregation_function: AVERAGE_WITH_MAX_DEGREE_BOUNDED "
+              "max_degree_bounded_weight_multiplier: 0.0 "
+              "weight_threshold: 1.0")),
+      "Check failed: "
+      "clusterer_config.max_degree_bounded_weight_multiplier\\(\\) > "
+      "0");
+}
+
 TEST(CompressGraphTest, EdgeAggregationThreeNodes) {
   SimpleUndirectedGraph graph;
   ASSERT_OK(graph.AddEdge(0, 1, 1.0));
@@ -80,7 +115,15 @@ TEST(CompressGraphTest, EdgeAggregationThreeNodes) {
             {"edge_aggregation_function: SUM weight_threshold: 1.0", 3.0},
             {"edge_aggregation_function: MAX weight_threshold: 1.0", 2.0},
             {"edge_aggregation_function: CUT_SPARSITY weight_threshold: 1.0",
-             3.0}})) {
+             3.0},
+            {"edge_aggregation_function: AVERAGE_WITH_MAX_DEGREE_BOUNDED "
+             "max_degree_bounded_weight_multiplier: 1.0 "
+             "weight_threshold: 1.0",
+             3.0},
+            {"edge_aggregation_function: AVERAGE_WITH_MAX_DEGREE_BOUNDED "
+             "max_degree_bounded_weight_multiplier: 3.0 "
+             "weight_threshold: 2.0",
+             1.5}})) {
     std::unique_ptr<SimpleUndirectedGraph> compressed_graph;
     ASSERT_OK_AND_ASSIGN(compressed_graph,
                          CompressGraph(graph, cluster_ids, clusterer_config));
@@ -111,7 +154,15 @@ TEST(CompressGraphTest, EdgeAggregationFourNodes) {
             {"edge_aggregation_function: SUM weight_threshold: 1.0", 6.0},
             {"edge_aggregation_function: MAX weight_threshold: 1.0", 4.0},
             {"edge_aggregation_function: CUT_SPARSITY weight_threshold: 1.0",
-             3.0}})) {
+             3.0},
+            {"edge_aggregation_function: AVERAGE_WITH_MAX_DEGREE_BOUNDED "
+             "max_degree_bounded_weight_multiplier: 1.0 "
+             "weight_threshold: 1.0",
+             3.0},
+            {"edge_aggregation_function: AVERAGE_WITH_MAX_DEGREE_BOUNDED "
+             "max_degree_bounded_weight_multiplier: 3.0 "
+             "weight_threshold: 2.0",
+             1.5}})) {
     std::unique_ptr<SimpleUndirectedGraph> compressed_graph;
     ASSERT_OK_AND_ASSIGN(compressed_graph,
                          CompressGraph(graph, cluster_ids, clusterer_config));

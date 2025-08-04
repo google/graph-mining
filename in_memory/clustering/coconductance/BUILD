@@ -12,13 +12,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-load("@com_google_protobuf//bazel:cc_proto_library.bzl", "cc_proto_library")
-load("@com_google_protobuf//bazel:proto_library.bzl", "proto_library")
-load("@com_google_protobuf//bazel:py_proto_library.bzl", "py_proto_library")
-
-licenses(["notice"])
+load("@protobuf//bazel:cc_proto_library.bzl", "cc_proto_library")
+load("@protobuf//bazel:proto_library.bzl", "proto_library")
+load("@protobuf//bazel:py_proto_library.bzl", "py_proto_library")
 
 package(default_visibility = ["//visibility:public"])
+
+licenses(["notice"])
 
 cc_library(
     name = "coconductance",
@@ -33,11 +33,12 @@ cc_library(
         "//in_memory/clustering:config_cc_proto",
         "//in_memory/clustering:graph",
         "//in_memory/clustering:in_memory_clusterer",
-        "@com_google_absl//absl/log:absl_check",
-        "@com_google_absl//absl/random",
-        "@com_google_absl//absl/status",
-        "@com_google_absl//absl/status:statusor",
-        "@com_google_absl//absl/types:optional",
+        "@abseil-cpp//absl/container:flat_hash_map",
+        "@abseil-cpp//absl/log:absl_check",
+        "@abseil-cpp//absl/random",
+        "@abseil-cpp//absl/status",
+        "@abseil-cpp//absl/status:statusor",
+        "@abseil-cpp//absl/types:optional",
     ],
     alwayslink = 1,
 )
@@ -49,9 +50,9 @@ cc_library(
     deps = [
         "//in_memory/clustering:graph",
         "//in_memory/clustering:in_memory_clusterer",
-        "@com_google_absl//absl/log:absl_check",
-        "@com_google_absl//absl/random",
-        "@com_google_absl//absl/random:bit_gen_ref",
+        "@abseil-cpp//absl/log:absl_check",
+        "@abseil-cpp//absl/random",
+        "@abseil-cpp//absl/random:bit_gen_ref",
     ],
 )
 

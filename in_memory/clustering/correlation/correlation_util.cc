@@ -14,11 +14,11 @@
 
 #include "in_memory/clustering/correlation/correlation_util.h"
 
-#include <cstdint>
-#include <utility>
 #include <vector>
 
+#include "absl/log/absl_check.h"
 #include "in_memory/clustering/config.pb.h"
+#include "in_memory/clustering/correlation/correlation.pb.h"
 #include "in_memory/clustering/graph.h"
 #include "in_memory/clustering/in_memory_clusterer.h"
 
@@ -32,31 +32,30 @@ double CorrelationClusteringObjective(
     const SimpleUndirectedGraph& graph,
     const graph_mining::in_memory::CorrelationClustererConfig& config,
     const InMemoryClusterer::Clustering& clustering) {
-  double total_agreements = 0;
+  double total_agreements = 0.0;
   vector<ClusterId> cluster_of_node(graph.NumNodes());
 
   for (ClusterId cluster_id = 0; cluster_id < clustering.size(); ++cluster_id) {
     for (NodeId node_id : clustering[cluster_id]) {
+      ABSL_CHECK_GE(node_id, 0);
+      ABSL_CHECK_LT(node_id, cluster_of_node.size());
       cluster_of_node[node_id] = cluster_id;
     }
   }
 
   for (ClusterId cluster_id = 0; cluster_id < clustering.size(); ++cluster_id) {
-    double sum_node_weights = 0;
-    double agreements_in_cluster = 0;
+    double sum_node_weights = 0.0;
+    double agreements_in_cluster = 0.0;
     for (NodeId node_id : clustering[cluster_id]) {
       double node_weight = graph.NodeWeight(node_id);
       agreements_in_cluster -=
           node_weight * sum_node_weights * config.resolution();
       sum_node_weights += graph.NodeWeight(node_id);
 
-      for (const auto& edge : graph.Neighbors(node_id)) {
-        const auto neighbor = edge.first;
-        const auto weight = edge.second - config.edge_weight_offset();
-
+      for (const auto& [neighbor, weight] : graph.Neighbors(node_id)) {
         if (neighbor != node_id && cluster_of_node[neighbor] == cluster_id) {
           // It is divided by two to account for double counting edges.
-          agreements_in_cluster += weight / 2;
+          agreements_in_cluster += (weight - config.edge_weight_offset()) / 2.0;
         }
       }
     }

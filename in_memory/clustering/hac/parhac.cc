@@ -15,7 +15,8 @@
 #include "in_memory/clustering/hac/parhac.h"
 
 #include <algorithm>
-#include <iterator>
+#include <cstddef>
+#include <cstdint>
 #include <utility>
 #include <vector>
 

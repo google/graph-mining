@@ -364,7 +364,6 @@ absl::StatusOr<SubgraphHacResults> RunSubgraphHac(
   // Create min_merge_similarities of the partition.
   std::vector<double> min_merge_similarities_partition(partition_num_nodes);
   graph_mining::ThreadSafeStatus status;
-  status.Update(absl::OkStatus());
   parlay::parallel_for(0, partition_num_nodes, [&](std::size_t j) {
     if (status.status().ok()) {
       auto local_status = min_merge_similarities_partition_map(j);
@@ -375,9 +374,7 @@ absl::StatusOr<SubgraphHacResults> RunSubgraphHac(
       }
     }
   });
-  if (!status.status().ok()) {
-    return status.status();
-  }
+  RETURN_IF_ERROR(status.status());
 
   // Run SubGraphHAC.
   RETURN_IF_ERROR(ValidateSubgraphHacInput(
@@ -397,7 +394,6 @@ absl::StatusOr<std::vector<double>> LocalMinMergeSimilarities(
   std::vector<double> min_merge_similarities(
       2 * partition_num_nodes - 1, std::numeric_limits<double>::infinity());
   graph_mining::ThreadSafeStatus status;
-  status.Update(absl::OkStatus());
   parlay::parallel_for(0, partition_num_nodes, [&](std::size_t j) {
     auto local_status = min_merge_similarities_partition_map(j);
     if (local_status.ok()) {
@@ -406,9 +402,7 @@ absl::StatusOr<std::vector<double>> LocalMinMergeSimilarities(
       status.Update(local_status.status());
     }
   });
-  if (!status.status().ok()) {
-    return status.status();
-  }
+  RETURN_IF_ERROR(status.status());
   NodeId internal_node_id = partition_num_nodes;
   for (const auto [u, v, w] : merges) {
     min_merge_similarities[internal_node_id] = std::min(

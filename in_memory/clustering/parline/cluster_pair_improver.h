@@ -15,8 +15,8 @@
 // An interface for classes that attempt to reduce the cut weight between two
 // input clusters, subject to some maximum cluster size.
 
-#ifndef RESEARCH_GRAPH_IN_MEMORY_BALANCED_PARTITIONER_CLUSTER_PAIR_IMPROVER_H_
-#define RESEARCH_GRAPH_IN_MEMORY_BALANCED_PARTITIONER_CLUSTER_PAIR_IMPROVER_H_
+#ifndef THIRD_PARTY_GRAPH_MINING_IN_MEMORY_CLUSTERING_PARLINE_CLUSTER_PAIR_IMPROVER_H_
+#define THIRD_PARTY_GRAPH_MINING_IN_MEMORY_CLUSTERING_PARLINE_CLUSTER_PAIR_IMPROVER_H_
 
 #include "absl/container/flat_hash_set.h"
 #include "in_memory/clustering/gbbs_graph.h"
@@ -49,4 +49,4 @@ class ClusterPairImprover {
 
 }  // namespace graph_mining::in_memory
 
-#endif  // RESEARCH_GRAPH_IN_MEMORY_BALANCED_PARTITIONER_CLUSTER_PAIR_IMPROVER_H_
+#endif  // THIRD_PARTY_GRAPH_MINING_IN_MEMORY_CLUSTERING_PARLINE_CLUSTER_PAIR_IMPROVER_H_

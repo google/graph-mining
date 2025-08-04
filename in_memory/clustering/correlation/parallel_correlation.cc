@@ -16,6 +16,7 @@
 
 #include <array>
 #include <cstddef>
+#include <cstdint>
 #include <iomanip>
 #include <ios>
 #include <memory>
@@ -30,10 +31,12 @@
 #include "gbbs/bridge.h"
 #include "gbbs/edge_map_data.h"
 #include "gbbs/graph.h"
+#include "gbbs/helpers/progress_reporting.h"
 #include "gbbs/macros.h"
 #include "gbbs/vertex.h"
 #include "gbbs/vertex_subset.h"
 #include "in_memory/clustering/config.pb.h"
+#include "in_memory/clustering/correlation/correlation.pb.h"
 #include "in_memory/clustering/correlation/parallel_correlation_util.h"
 #include "in_memory/clustering/in_memory_clusterer.h"
 #include "in_memory/clustering/types.h"
@@ -118,14 +121,14 @@ std::unique_ptr<gbbs::vertexSubset> BestMovesForVertexSubset(
               helper.BestMove(current_graph, {i});
           best_move.objective_change > 0.0) {
         gbbs::CAS<bool>(&moved_clusters[helper.ClusterIds()[i]],
-                        /*oldval=*/false, /*newval=*/true);
+                        /*oldv=*/false, /*newv=*/true);
         helper.MoveNodeToClusterAsync(i, best_move.target_cluster_id);
         if (ClusteringHelper::ClusterId new_cluster_id = helper.ClusterIds()[i];
             new_cluster_id < current_graph.n) {
           // If new_cluster_id is out of bound, it is handled by
           // MaybeFoldClusterIdSpace below.
-          gbbs::CAS<bool>(&moved_clusters[new_cluster_id], /*oldval=*/false,
-                          /*newval=*/true);
+          gbbs::CAS<bool>(&moved_clusters[new_cluster_id], /*oldv=*/false,
+                          /*newv=*/true);
         }
       }
     });
@@ -292,12 +295,41 @@ double IterateBestMoves(const gbbs::symmetric_ptr_graph<gbbs::symmetric_vertex,
 // not specified in the config.
 constexpr int kDefaultNumIterations = 10;
 
+struct NumIterations {
+  int64_t outer_iters;
+  int64_t inner_iters;
+};
+
+// Returns the number of outer and inner iterations to run based on the
+// clustering method specified in  `config`.
+NumIterations GetNumIterations(const CorrelationClustererConfig& config) {
+  switch (GetClusteringMovesMethod(config)) {
+    case CorrelationClustererConfig::CLUSTER_MOVES:
+      return {.outer_iters = 1,
+              .inner_iters = config.num_iterations() > 0
+                                 ? config.num_iterations()
+                                 : kDefaultNumIterations};
+    case CorrelationClustererConfig::LOUVAIN:
+      return {
+          .outer_iters = config.louvain_config().num_iterations() > 0
+                             ? config.louvain_config().num_iterations()
+                             : kDefaultNumIterations,
+          .inner_iters = config.louvain_config().num_inner_iterations() > 0
+                             ? config.louvain_config().num_inner_iterations()
+                             : kDefaultNumIterations};
+    default:
+      ABSL_LOG(FATAL) << "Unknown clustering moves method: "
+                      << config.clustering_moves_method();
+  }
+}
+
 }  // namespace
 
 absl::StatusOr<std::vector<ParallelCorrelationClusterer::ClusterId>>
-ParallelCorrelationClusterer::RefineClusters(
+ParallelCorrelationClusterer::RefineClustersWithProgressReporting(
     const InMemoryClusterer::Clustering& initial_clustering,
-    ClusteringHelper& initial_helper) const {
+    ClusteringHelper& initial_helper,
+    std::optional<gbbs::ReportProgressCallback> report_progress) const {
   
   using symmetric_ptr_graph =
       gbbs::symmetric_ptr_graph<gbbs::symmetric_vertex, float>;
@@ -316,27 +348,15 @@ ParallelCorrelationClusterer::RefineClusters(
   std::unique_ptr<symmetric_ptr_graph> compressed_graph;
 
   // Set number of iterations based on clustering method
-  int num_iterations = 0;
-  int num_inner_iterations = 0;
-  switch (GetClusteringMovesMethod(config)) {
-    case CorrelationClustererConfig::CLUSTER_MOVES:
-      num_iterations = 1;
-      num_inner_iterations = config.num_iterations() > 0
-                                 ? config.num_iterations()
-                                 : kDefaultNumIterations;
-      break;
-    case CorrelationClustererConfig::LOUVAIN:
-      num_iterations = config.louvain_config().num_iterations() > 0
-                           ? config.louvain_config().num_iterations()
-                           : kDefaultNumIterations;
-      num_inner_iterations =
-          config.louvain_config().num_inner_iterations() > 0
-              ? config.louvain_config().num_inner_iterations()
-              : kDefaultNumIterations;
-      break;
-    default:
-      ABSL_LOG(FATAL) << "Unknown clustering moves method: "
-                      << config.clustering_moves_method();
+  NumIterations num_iters = GetNumIterations(config);
+  std::optional<gbbs::IterationProgressReporter> progress_reporter;
+  if (report_progress.has_value()) {
+    // If `config.use_refinement()` is true, we lump all of the refinement work
+    // into the postprocessing step.
+    progress_reporter.emplace(gbbs::IterationProgressReporter(
+        *std::move(report_progress), num_iters.outer_iters,
+        /*has_preprocessing=*/true,
+        /*has_postprocessing=*/config.use_refinement()));
   }
 
   double max_objective = initial_helper.ComputeObjective(*(graph_.Graph()));
@@ -361,8 +381,8 @@ ParallelCorrelationClusterer::RefineClusters(
   std::unique_ptr<ClusteringHelper> current_helper;
 
   // If performing multi-level refinement, store intermediate clusterings
-  // and graphs
-  bool use_refinement = config.use_refinement();
+  // and graphs.
+  const bool use_refinement = config.use_refinement();
   // The index of each of these sequences matches the index of the outer
   // iteration of the correlation clustering algorithm, which represents
   // repeatedly moving vertices / clusters to their desired clusters, and in the
@@ -379,38 +399,44 @@ ParallelCorrelationClusterer::RefineClusters(
   if (use_refinement) {
     recursive_cluster_ids =
         gbbs::sequence<std::vector<gbbs::uintE>>::from_function(
-            num_iterations,
+            num_iters.outer_iters,
             [](std::size_t i) { return std::vector<gbbs::uintE>(); });
     recursive_node_weights = gbbs::sequence<std::vector<double>>::from_function(
-        num_iterations, [](std::size_t i) { return std::vector<double>(); });
+        num_iters.outer_iters,
+        [](std::size_t i) { return std::vector<double>(); });
     recursive_node_parts =
         gbbs::sequence<std::vector<NodePartId>>::from_function(
-            num_iterations,
+            num_iters.outer_iters,
             [](std::size_t i) { return std::vector<NodePartId>(); });
     recursive_cluster_id_and_part_to_new_node_ids =
         gbbs::sequence<std::vector<std::array<gbbs::uintE, 2>>>::from_function(
-            num_iterations, [](std::size_t i) {
+            num_iters.outer_iters, [](std::size_t i) {
               return std::vector<std::array<gbbs::uintE, 2>>();
             });
     recursive_graphs =
         gbbs::sequence<std::unique_ptr<symmetric_ptr_graph>>::from_function(
-            num_iterations, [](std::size_t i) {
+            num_iters.outer_iters, [](std::size_t i) {
               return std::unique_ptr<symmetric_ptr_graph>(nullptr);
             });
   }
+  if (progress_reporter.has_value()) {
+    RETURN_IF_ERROR(progress_reporter->PreprocessingComplete());
+  }
 
   int iter;
-  for (iter = 0; iter < num_iterations; ++iter) {
+  for (iter = 0; iter < num_iters.outer_iters; ++iter) {
     ABSL_LOG(INFO) << "Clustering iteration " << iter;
     symmetric_ptr_graph* current_graph =
         (iter == 0) ? graph_.Graph() : compressed_graph.get();
+    ABSL_CHECK_NE(current_graph, nullptr);
     auto* helper = (iter == 0) ? &initial_helper : current_helper.get();
+    ABSL_CHECK_NE(helper, nullptr);
 
     // Iterate over best moves.
     // TODO: refactor local_cluster_ids to be a return value of
     // IterateBestMoves.
     double new_objective =
-        IterateBestMoves(*current_graph, max_objective, num_inner_iterations,
+        IterateBestMoves(*current_graph, max_objective, num_iters.inner_iters,
                          local_cluster_ids, *helper);
 
     // If no moves can be made at all, exit.
@@ -426,6 +452,9 @@ ParallelCorrelationClusterer::RefineClusters(
       // refinement, so that refinement does not occur on a level with no
       // further vertex moves
       --iter;
+      if (progress_reporter.has_value()) {
+        RETURN_IF_ERROR(progress_reporter->IterationsDoneEarly());
+      }
       break;
     }
 
@@ -437,13 +466,16 @@ ParallelCorrelationClusterer::RefineClusters(
                                          : cluster_ids,
         local_cluster_ids);
 
-    if (iter == num_iterations - 1) {
+    if (iter == num_iters.outer_iters - 1) {
       if (use_refinement) {
         recursive_cluster_ids[iter] = local_cluster_ids;
         recursive_node_weights[iter] = helper->NodeWeights();
         recursive_node_parts[iter] = helper->NodeParts();
         recursive_cluster_id_and_part_to_new_node_ids[iter] = {};
         recursive_graphs[iter] = std::move(compressed_graph);
+      }
+      if (progress_reporter.has_value()) {
+        RETURN_IF_ERROR(progress_reporter->IterationsDoneEarly());
       }
       break;
     }
@@ -498,6 +530,9 @@ ParallelCorrelationClusterer::RefineClusters(
 
     // Prepare for the next iteration.
     local_cluster_ids.resize(compressed_graph->n);
+    if (progress_reporter.has_value()) {
+      RETURN_IF_ERROR(progress_reporter->IterationComplete(iter));
+    }
   }
 
   // Perform multi-level refinement
@@ -528,7 +563,7 @@ ParallelCorrelationClusterer::RefineClusters(
                                      std::move(recursive_node_parts[i]));
 
       max_objective =
-          IterateBestMoves(*current_graph, max_objective, num_inner_iterations,
+          IterateBestMoves(*current_graph, max_objective, num_iters.inner_iters,
                            flattened_cluster_ids, initial_helper);
 
       cluster_ids = std::move(flattened_cluster_ids);
@@ -541,12 +576,17 @@ ParallelCorrelationClusterer::RefineClusters(
     // calling the destructor on the iter-th recursive graph is necessary.
     recursive_graphs[iter] = nullptr;
   }
+  // Record that refinement post-processing is complete.
+  if (use_refinement && progress_reporter.has_value()) {
+    RETURN_IF_ERROR(progress_reporter->PostprocessingComplete());
+  }
   return cluster_ids;
 }
 
-absl::Status ParallelCorrelationClusterer::RefineClusters(
+absl::Status ParallelCorrelationClusterer::RefineClustersWithProgressReporting(
     const ClustererConfig& clusterer_config,
-    InMemoryClusterer::Clustering* initial_clustering) const {
+    InMemoryClusterer::Clustering* initial_clustering,
+    std::optional<gbbs::ReportProgressCallback> report_progress) const {
   if (graph_.Graph() == nullptr) {
     return absl::FailedPreconditionError(
         "'RefineClusters' cannot be called before 'FinishImport' is called for "
@@ -554,12 +594,14 @@ absl::Status ParallelCorrelationClusterer::RefineClusters(
   }
   
   // Initialize clustering helper
-  ClusteringHelper helper{static_cast<NodeId>(graph_.Graph()->n),
-                          clusterer_config, *initial_clustering,
-                          graph_.GetNodeParts()};
-  ASSIGN_OR_RETURN(std::vector<ClusterId> cluster_ids,
-                   ParallelCorrelationClusterer::RefineClusters(
-                       *initial_clustering, helper));
+  const size_t num_nodes = graph_.Graph()->n;
+  ClusteringHelper helper{static_cast<NodeId>(num_nodes), clusterer_config,
+                          /*node_weights=*/std::vector<double>(num_nodes, 1.0),
+                          *initial_clustering, graph_.GetNodeParts()};
+  ASSIGN_OR_RETURN(
+      std::vector<ClusterId> cluster_ids,
+      ParallelCorrelationClusterer::RefineClustersWithProgressReporting(
+          *initial_clustering, helper, std::move(report_progress)));
   *initial_clustering =
       graph_mining::in_memory::OutputIndicesById<ClusterId, NodeId>(
           cluster_ids);
@@ -567,46 +609,58 @@ absl::Status ParallelCorrelationClusterer::RefineClusters(
 }
 
 absl::StatusOr<InMemoryClusterer::Clustering>
-ParallelCorrelationClusterer::Cluster(
-    const ClustererConfig& clusterer_config) const {
+ParallelCorrelationClusterer::ClusterWithProgressReporting(
+    const ClustererConfig& clusterer_config,
+    std::optional<gbbs::ReportProgressCallback> report_progress) const {
   if (graph_.Graph() == nullptr) {
     return absl::FailedPreconditionError(
         "'Cluster' cannot be called before 'FinishImport' is called for the "
         "graph");
   }
-  if (graph_.Graph()->n == 0) return InMemoryClusterer::Clustering();
+  const size_t num_nodes = graph_.Graph()->n;
+  if (num_nodes == 0) {
+    if (report_progress.has_value()) (*report_progress)(1.0);
+    return InMemoryClusterer::Clustering();
+  }
+
   
-  InMemoryClusterer::Clustering clustering =
-      AllSingletonsClustering(graph_.Graph()->n);
-  RETURN_IF_ERROR(RefineClusters(clusterer_config, &clustering));
+  InMemoryClusterer::Clustering clustering = AllSingletonsClustering(num_nodes);
+  RETURN_IF_ERROR(RefineClustersWithProgressReporting(
+      clusterer_config, &clustering, std::move(report_progress)));
   return clustering;
 }
 
 absl::StatusOr<std::vector<NodeId>>
-ParallelCorrelationClusterer::ClusterAndReturnClusterIds(
-    const ClustererConfig& clusterer_config) const {
+ParallelCorrelationClusterer::ClusterAndReturnClusterIdsWithProgressReporting(
+    const ClustererConfig& clusterer_config,
+    std::optional<gbbs::ReportProgressCallback> report_progress) const {
   if (graph_.Graph() == nullptr) {
     return absl::FailedPreconditionError(
         "'ClusterAndReturnClusterIds' cannot be called before 'FinishImport' "
         "is called for the graph");
   }
-  if (graph_.Graph()->n == 0) return std::vector<NodeId>();
+  const size_t num_nodes = graph_.Graph()->n;
+  if (num_nodes == 0) {
+    if (report_progress.has_value()) (*report_progress)(1.0);
+    return std::vector<NodeId>();
+  }
+
   
-  InMemoryClusterer::Clustering clustering =
-      AllSingletonsClustering(graph_.Graph()->n);
-  ClusteringHelper helper(static_cast<NodeId>(graph_.Graph()->n),
-                          clusterer_config, clustering, graph_.GetNodeParts());
+  InMemoryClusterer::Clustering clustering = AllSingletonsClustering(num_nodes);
+  ClusteringHelper helper{static_cast<NodeId>(num_nodes), clusterer_config,
+                          /*node_weights=*/std::vector<double>(num_nodes, 1.0),
+                          clustering, graph_.GetNodeParts()};
+
   ASSIGN_OR_RETURN(
       std::vector<ClusterId> cluster_ids,
-      ParallelCorrelationClusterer::RefineClusters(clustering, helper));
+      ParallelCorrelationClusterer::RefineClustersWithProgressReporting(
+          clustering, helper, std::move(report_progress)));
   std::vector<NodeId> cluster_ids_converted(cluster_ids.size());
-  // TODO: b/399828374 - Avoid this conversion by changing the definition of
-  // `ClusterId`.
-  parlay::parallel_for(
-      0, cluster_ids.size(), [&, num_nodes = graph_.Graph()->n](std::size_t i) {
-        ABSL_CHECK_LE(cluster_ids[i], num_nodes);
-        cluster_ids_converted[i] = static_cast<NodeId>(cluster_ids[i]);
-      });
+  // TODO: Avoid this conversion by changing the definition of `ClusterId`.
+  parlay::parallel_for(0, cluster_ids.size(), [&](std::size_t i) {
+    ABSL_CHECK_LE(cluster_ids[i], num_nodes);
+    cluster_ids_converted[i] = static_cast<NodeId>(cluster_ids[i]);
+  });
   return cluster_ids_converted;
 }
 

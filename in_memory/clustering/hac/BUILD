@@ -12,9 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-load("@com_google_protobuf//bazel:cc_proto_library.bzl", "cc_proto_library")
-load("@com_google_protobuf//bazel:proto_library.bzl", "proto_library")
-load("@com_google_protobuf//bazel:py_proto_library.bzl", "py_proto_library")
+load("@protobuf//bazel:cc_proto_library.bzl", "cc_proto_library")
+load("@protobuf//bazel:proto_library.bzl", "proto_library")
+load("@protobuf//bazel:py_proto_library.bzl", "py_proto_library")
 
 package(
         default_visibility = ["//visibility:public"],
@@ -38,9 +38,9 @@ cc_library(
         "//in_memory/clustering:parallel_clustered_graph_internal",
         "//in_memory/parallel:parallel_graph_utils",
         "//in_memory/parallel:scheduler",
-        "@com_google_absl//absl/log:absl_log",
-        "@com_google_absl//absl/status:statusor",
-        "@com_google_absl//absl/time",
+        "@abseil-cpp//absl/log:absl_log",
+        "@abseil-cpp//absl/status:statusor",
+        "@abseil-cpp//absl/time",
     ],
     alwayslink = 1,
 )
@@ -61,15 +61,15 @@ cc_library(
         "//in_memory/clustering:parallel_clustered_graph_internal",
         "//in_memory/parallel:parallel_graph_utils",
         "//in_memory/parallel:scheduler",
+        "@abseil-cpp//absl/log:absl_check",
+        "@abseil-cpp//absl/log:absl_log",
+        "@abseil-cpp//absl/status",
+        "@abseil-cpp//absl/status:statusor",
+        "@abseil-cpp//absl/time",
         "@com_github_gbbs//gbbs:bridge",
         "@com_github_gbbs//gbbs:graph",
         "@com_github_gbbs//gbbs:macros",
         "@com_github_gbbs//gbbs:vertex",
-        "@com_google_absl//absl/log:absl_check",
-        "@com_google_absl//absl/log:absl_log",
-        "@com_google_absl//absl/status",
-        "@com_google_absl//absl/status:statusor",
-        "@com_google_absl//absl/time",
         "@parlaylib//parlay:delayed_sequence",
         "@parlaylib//parlay:parallel",
         "@parlaylib//parlay:sequence",
@@ -82,10 +82,10 @@ cc_library(
     hdrs = ["parhac_internal.h"],
     deps = [
         "//utils:math",
+        "@abseil-cpp//absl/log:absl_check",
+        "@abseil-cpp//absl/random",
+        "@abseil-cpp//absl/time",
         "@com_github_gbbs//gbbs:macros",
-        "@com_google_absl//absl/log:absl_check",
-        "@com_google_absl//absl/random",
-        "@com_google_absl//absl/time",
     ],
 )
 
@@ -98,11 +98,11 @@ cc_library(
         "//in_memory/clustering:parallel_clustered_graph_internal",
         "//in_memory/clustering/hac/subgraph:approximate_subgraph_hac",
         "//in_memory/connected_components:asynchronous_union_find",
+        "@abseil-cpp//absl/container:flat_hash_map",
+        "@abseil-cpp//absl/log:absl_check",
+        "@abseil-cpp//absl/memory",
+        "@abseil-cpp//absl/status:statusor",
         "@com_github_gbbs//gbbs:macros",
-        "@com_google_absl//absl/container:flat_hash_map",
-        "@com_google_absl//absl/log:absl_check",
-        "@com_google_absl//absl/memory",
-        "@com_google_absl//absl/status:statusor",
         "@parlaylib//parlay:sequence",
     ],
 )

@@ -16,11 +16,13 @@
 #define THIRD_PARTY_GRAPH_MINING_IN_MEMORY_CLUSTERING_CONNECTED_COMPONENTS_CONNECTED_COMPONENTS_H_
 
 #include <cstddef>
+#include <optional>
 #include <vector>
 
 #include "absl/base/nullability.h"
 #include "absl/status/statusor.h"
 #include "absl/types/span.h"
+#include "gbbs/helpers/progress_reporting.h"
 #include "in_memory/clustering/connected_components/connected_components_graph.h"
 #include "in_memory/clustering/in_memory_clusterer.h"
 #include "in_memory/parallel/parallel_sequence_ops.h"
@@ -32,24 +34,34 @@ namespace graph_mining::in_memory {
 
 // Clusterer that produces one cluster for each connected component in the
 // graph, ignoring edge directions.
-class ParallelConnectedComponentsClusterer : public InMemoryClusterer {
+class ParallelConnectedComponentsClusterer
+    : public InMemoryClustererWithProgressReporting {
  public:
-  absl::Nonnull<Graph*> MutableGraph() override { return &graph_; }
+  Graph* absl_nonnull MutableGraph() override { return &graph_; }
 
-  absl::StatusOr<Clustering> Cluster(
-      const graph_mining::in_memory::ClustererConfig& config) const override {
+  absl::StatusOr<Clustering> ClusterWithProgressReporting(
+      const graph_mining::in_memory::ClustererConfig& config,
+      std::optional<gbbs::ReportProgressCallback> report_progress)
+      const override {
     
     ASSIGN_OR_RETURN(absl::Span<const NodeId> parents, graph_.ParentArray());
-    return graph_mining::in_memory::OutputIndicesById<NodeId, NodeId>(parents);
+    std::vector<std::vector<NodeId>> result =
+        graph_mining::in_memory::OutputIndicesById<NodeId, NodeId>(parents);
+    if (report_progress.has_value()) (*report_progress)(1.0);
+    return result;
   }
 
-  absl::StatusOr<std::vector<NodeId>> ClusterAndReturnClusterIds(
-      const graph_mining::in_memory::ClustererConfig& config) const override {
+  absl::StatusOr<std::vector<NodeId>>
+  ClusterAndReturnClusterIdsWithProgressReporting(
+      const graph_mining::in_memory::ClustererConfig& config,
+      std::optional<gbbs::ReportProgressCallback> report_progress)
+      const override {
     
     ASSIGN_OR_RETURN(absl::Span<const NodeId> parents, graph_.ParentArray());
     std::vector<NodeId> cluster_ids(parents.size());
     parlay::parallel_for(0, cluster_ids.size(),
                          [&](std::size_t i) { cluster_ids[i] = parents[i]; });
+    if (report_progress.has_value()) (*report_progress)(1.0);
     return cluster_ids;
   }
 

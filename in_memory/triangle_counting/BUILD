@@ -14,9 +14,9 @@
 
 # Parallel triangle counting library.
 
-load("@com_google_protobuf//bazel:cc_proto_library.bzl", "cc_proto_library")
-load("@com_google_protobuf//bazel:proto_library.bzl", "proto_library")
-load("@com_google_protobuf//bazel:py_proto_library.bzl", "py_proto_library")
+load("@protobuf//bazel:cc_proto_library.bzl", "cc_proto_library")
+load("@protobuf//bazel:proto_library.bzl", "proto_library")
+load("@protobuf//bazel:py_proto_library.bzl", "py_proto_library")
 
 package(default_visibility = ["//visibility:public"])
 
@@ -28,8 +28,9 @@ cc_library(
         "//in_memory/clustering:gbbs_graph",
         "//in_memory/clustering:in_memory_clusterer",
         "//in_memory/parallel:scheduler",
+        "@abseil-cpp//absl/status",
+        "@abseil-cpp//absl/status:statusor",
         "@com_github_gbbs//benchmarks/TriangleCounting/ShunTangwongsan15:Triangle",
         "@com_github_gbbs//gbbs:macros",
-        "@com_google_absl//absl/status",
     ],
 )

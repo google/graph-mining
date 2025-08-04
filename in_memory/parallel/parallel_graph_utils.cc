@@ -130,26 +130,30 @@ OffsetsEdges ComputeInterClusterEdgesSort(
     const std::function<bool(gbbs::uintE, gbbs::uintE)>& is_valid_func,
     const std::function<float(std::tuple<gbbs::uintE, gbbs::uintE, float>)>&
         scale_func) {
-  // Retrieve all valid edges, mapped to cluster_ids
-  auto inter_cluster_edges = RetrieveInterClusterEdges(
-      original_graph, cluster_ids, is_valid_func, scale_func);
-
-  // Sort inter-cluster edges and obtain boundary indices where edges differ
-  // (in any vertex). These indices are stored in filtered_mark_edges.
   auto get_endpoints =
       [](const std::tuple<gbbs::uintE, gbbs::uintE, float>& edge_with_weight) {
         return std::tie(std::get<0>(edge_with_weight),
                         std::get<1>(edge_with_weight));
       };
-  auto inter_cluster_edges_sort =
-      ParallelSampleSort<std::tuple<gbbs::uintE, gbbs::uintE, float>>(
-          absl::Span<std::tuple<gbbs::uintE, gbbs::uintE, float>>(
-              inter_cluster_edges.data(), inter_cluster_edges.size()),
-          [&](std::tuple<gbbs::uintE, gbbs::uintE, float> a,
-              std::tuple<gbbs::uintE, gbbs::uintE, float> b) {
-            return get_endpoints(a) < get_endpoints(b);
-          });
+  parlay::sequence<std::tuple<gbbs::uintE, gbbs::uintE, float>>
+      inter_cluster_edges_sort;
+  {
+    // Retrieve all valid edges, mapped to cluster_ids
+    std::vector<std::tuple<gbbs::uintE, gbbs::uintE, float>>
+        inter_cluster_edges = RetrieveInterClusterEdges(
+            original_graph, cluster_ids, is_valid_func, scale_func);
 
+    // Sort inter-cluster edges and obtain boundary indices where edges differ
+    // (in any vertex). These indices are stored in filtered_mark_edges.
+    inter_cluster_edges_sort =
+        ParallelSampleSort<std::tuple<gbbs::uintE, gbbs::uintE, float>>(
+            absl::Span<std::tuple<gbbs::uintE, gbbs::uintE, float>>(
+                inter_cluster_edges.data(), inter_cluster_edges.size()),
+            [&](std::tuple<gbbs::uintE, gbbs::uintE, float> a,
+                std::tuple<gbbs::uintE, gbbs::uintE, float> b) {
+              return get_endpoints(a) < get_endpoints(b);
+            });
+  }
   std::vector<gbbs::uintE> filtered_mark_edges =
       GetBoundaryIndices<gbbs::uintE>(
           inter_cluster_edges_sort.size(),

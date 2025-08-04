@@ -12,9 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-load("@com_google_protobuf//bazel:cc_proto_library.bzl", "cc_proto_library")
-load("@com_google_protobuf//bazel:proto_library.bzl", "proto_library")
-load("@com_google_protobuf//bazel:py_proto_library.bzl", "py_proto_library")
+load("@protobuf//bazel:cc_proto_library.bzl", "cc_proto_library")
+load("@protobuf//bazel:proto_library.bzl", "proto_library")
+load("@protobuf//bazel:py_proto_library.bzl", "py_proto_library")
 
 package(default_visibility = ["//visibility:public"])
 
@@ -24,9 +24,9 @@ cc_library(
     name = "parallel_sequence_ops",
     hdrs = ["parallel_sequence_ops.h"],
     deps = [
+        "@abseil-cpp//absl/log:absl_check",
+        "@abseil-cpp//absl/types:span",
         "@com_github_gbbs//gbbs:bridge",
-        "@com_google_absl//absl/log:absl_check",
-        "@com_google_absl//absl/types:span",
         "@parlaylib//parlay:delayed_sequence",
         "@parlaylib//parlay:primitives",
         "@parlaylib//parlay:sequence",
@@ -40,7 +40,7 @@ cc_library(
     srcs = ["scheduler.cc"],
     hdrs = ["scheduler.h"],
     deps = [
-        "@com_google_absl//absl/flags:flag",
+        "@abseil-cpp//absl/flags:flag",
         "@parlaylib//parlay:scheduler",
     ],
 )
@@ -51,12 +51,12 @@ cc_library(
     hdrs = ["parallel_graph_utils.h"],
     deps = [
         ":parallel_sequence_ops",
+        "@abseil-cpp//absl/types:span",
         "@com_github_gbbs//gbbs",
         "@com_github_gbbs//gbbs:graph",
         "@com_github_gbbs//gbbs:graph_io",
         "@com_github_gbbs//gbbs:macros",
         "@com_github_gbbs//gbbs:vertex",
-        "@com_google_absl//absl/types:span",
         "@parlaylib//parlay:parallel",
         "@parlaylib//parlay:sequence",
     ],
@@ -68,7 +68,7 @@ cc_library(
     hdrs = ["scheduler_test_util.h"],
     deps = [
         ":scheduler",
-        "@com_google_googletest//:gtest",
+        "@googletest//:gtest",
     ],
 )
 
@@ -77,8 +77,8 @@ cc_library(
     hdrs = ["streaming_writer.h"],
     deps = [
         ":per_worker",
-        "@com_google_absl//absl/log:absl_check",
-        "@com_google_absl//absl/synchronization",
+        "@abseil-cpp//absl/log:absl_check",
+        "@abseil-cpp//absl/synchronization",
         "@parlaylib//parlay:parallel",
         "@parlaylib//parlay:primitives",
     ],
@@ -88,8 +88,8 @@ cc_library(
     name = "per_worker",
     hdrs = ["per_worker.h"],
     deps = [
-        "@com_google_absl//absl/base:core_headers",
-        "@com_google_absl//absl/log:absl_check",
+        "@abseil-cpp//absl/base:core_headers",
+        "@abseil-cpp//absl/log:absl_check",
         "@parlaylib//parlay:scheduler",
     ],
 )

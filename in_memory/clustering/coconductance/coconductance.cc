@@ -15,11 +15,14 @@
 #include "in_memory/clustering/coconductance/coconductance.h"
 
 #include <algorithm>
+#include <functional>
+#include <limits>
 #include <memory>
 #include <numeric>
 #include <utility>
 #include <vector>
 
+#include "absl/container/flat_hash_map.h"
 #include "absl/log/absl_check.h"
 #include "absl/random/random.h"
 #include "absl/status/status.h"

@@ -12,9 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-load("@com_google_protobuf//bazel:cc_proto_library.bzl", "cc_proto_library")
-load("@com_google_protobuf//bazel:proto_library.bzl", "proto_library")
-load("@com_google_protobuf//bazel:py_proto_library.bzl", "py_proto_library")
+load("@protobuf//bazel:cc_proto_library.bzl", "cc_proto_library")
+load("@protobuf//bazel:proto_library.bzl", "proto_library")
+load("@protobuf//bazel:py_proto_library.bzl", "py_proto_library")
 load("//utils:build_defs.bzl", "graph_mining_cc_test")
 
 package(default_visibility = ["//visibility:public"])
@@ -29,13 +29,13 @@ cc_library(
         "//in_memory/clustering:in_memory_clusterer",
         "//in_memory/clustering:types",
         "//utils:math",
-        "@com_google_absl//absl/container:btree",
-        "@com_google_absl//absl/container:flat_hash_map",
-        "@com_google_absl//absl/container:flat_hash_set",
-        "@com_google_absl//absl/log:absl_check",
-        "@com_google_absl//absl/log:absl_log",
-        "@com_google_absl//absl/log:check",
-        "@com_google_absl//absl/types:span",
+        "@abseil-cpp//absl/container:btree",
+        "@abseil-cpp//absl/container:flat_hash_map",
+        "@abseil-cpp//absl/container:flat_hash_set",
+        "@abseil-cpp//absl/log:absl_check",
+        "@abseil-cpp//absl/log:absl_log",
+        "@abseil-cpp//absl/log:check",
+        "@abseil-cpp//absl/types:span",
     ],
 )
 
@@ -51,14 +51,14 @@ cc_library(
         "//in_memory/clustering:types",
         "//utils:math",
         "//utils/container:fixed_size_priority_queue",
-        "@com_google_absl//absl/container:flat_hash_map",
-        "@com_google_absl//absl/container:flat_hash_set",
-        "@com_google_absl//absl/log:absl_check",
-        "@com_google_absl//absl/log:check",
-        "@com_google_absl//absl/status",
-        "@com_google_absl//absl/status:statusor",
-        "@com_google_absl//absl/strings:str_format",
-        "@com_google_absl//absl/types:span",
+        "@abseil-cpp//absl/container:flat_hash_map",
+        "@abseil-cpp//absl/container:flat_hash_set",
+        "@abseil-cpp//absl/log:absl_check",
+        "@abseil-cpp//absl/log:check",
+        "@abseil-cpp//absl/status",
+        "@abseil-cpp//absl/status:statusor",
+        "@abseil-cpp//absl/strings:str_format",
+        "@abseil-cpp//absl/types:span",
     ],
 )
 
@@ -73,11 +73,11 @@ cc_library(
         "//in_memory/clustering:graph",
         "//in_memory/clustering:in_memory_clusterer",
         "//in_memory/clustering:types",
-        "@com_google_absl//absl/algorithm:container",
-        "@com_google_absl//absl/log:absl_check",
-        "@com_google_absl//absl/log:absl_log",
-        "@com_google_absl//absl/log:check",
-        "@com_google_absl//absl/status:statusor",
+        "@abseil-cpp//absl/algorithm:container",
+        "@abseil-cpp//absl/log:absl_check",
+        "@abseil-cpp//absl/log:absl_log",
+        "@abseil-cpp//absl/log:check",
+        "@abseil-cpp//absl/status:statusor",
     ],
 )
 
@@ -92,8 +92,8 @@ graph_mining_cc_test(
         "//in_memory/clustering:graph",
         "//in_memory/clustering:in_memory_clusterer",
         "//utils:math",
-        "@com_google_absl//absl/algorithm:container",
-        "@com_google_googletest//:gtest_main",
+        "@abseil-cpp//absl/algorithm:container",
+        "@googletest//:gtest_main",
     ],
 )
 
@@ -108,8 +108,8 @@ graph_mining_cc_test(
         "//in_memory/clustering:graph",
         "//in_memory/clustering:in_memory_clusterer",
         "//utils:math",
-        "@com_google_absl//absl/status:statusor",
-        "@com_google_googletest//:gtest_main",
+        "@abseil-cpp//absl/status:statusor",
+        "@googletest//:gtest_main",
     ],
 )
 
@@ -121,9 +121,9 @@ graph_mining_cc_test(
         ":approximate_subgraph_hac_node",
         "//in_memory:status_macros",
         "//in_memory/clustering:in_memory_clusterer",
-        "@com_google_absl//absl/container:flat_hash_map",
-        "@com_google_absl//absl/container:flat_hash_set",
-        "@com_google_absl//absl/types:span",
-        "@com_google_googletest//:gtest_main",
+        "@abseil-cpp//absl/container:flat_hash_map",
+        "@abseil-cpp//absl/container:flat_hash_set",
+        "@abseil-cpp//absl/types:span",
+        "@googletest//:gtest_main",
     ],
 )

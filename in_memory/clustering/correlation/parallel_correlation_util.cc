@@ -28,16 +28,17 @@
 #include "absl/container/flat_hash_map.h"
 #include "absl/flags/flag.h"
 #include "absl/log/absl_check.h"
+#include "absl/log/log.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/str_cat.h"
-#include "absl/types/optional.h"
 #include "absl/types/span.h"
 #include "gbbs/bridge.h"
 #include "gbbs/graph.h"
 #include "gbbs/macros.h"
 #include "gbbs/vertex.h"
 #include "in_memory/clustering/config.pb.h"
+#include "in_memory/clustering/correlation/correlation.pb.h"
 #include "in_memory/clustering/correlation/correlation_util.h"
 #include "in_memory/clustering/in_memory_clusterer.h"
 #include "in_memory/clustering/types.h"
@@ -61,29 +62,15 @@ void ClusteringHelper::ResetClustering(
     std::vector<NodePartId> node_parts) {
   num_nodes_ = cluster_ids.size();
 
-  size_t node_weights_size = node_weights.size();
-  ABSL_CHECK(node_weights_size == num_nodes_ || node_weights_size == 0);
-
-  cluster_ids_.resize(num_nodes_);
+  ABSL_CHECK_EQ(node_weights.size(), num_nodes_);
   node_weights_ = std::move(node_weights);
 
   if (clusterer_config_.correlation_clusterer_config()
           .use_bipartite_objective()) {
-    partitioned_cluster_weights_.resize(num_nodes_);
-    cluster_sizes_.resize(num_nodes_);
-    parlay::parallel_for(0, num_nodes_, [&](std::size_t i) {
-      partitioned_cluster_weights_[i] = {0, 0};
-      cluster_sizes_[i] = 0;
-    });
-  } else {
-    cluster_weights_.resize(num_nodes_);
-    cluster_sizes_.resize(num_nodes_);
-    parlay::parallel_for(0, num_nodes_, [&](std::size_t i) {
-      cluster_weights_[i] = 0;
-      cluster_sizes_[i] = 0;
-    });
+    ABSL_CHECK_EQ(node_parts.size(), num_nodes_);
+    ABSL_CHECK(IsValidBipartiteNodeParts(node_parts));
+    node_parts_ = std::move(node_parts);
   }
-  node_parts_ = std::move(node_parts);
 
   std::vector<std::vector<NodeId>> clustering =
       graph_mining::in_memory::OutputIndicesById<ClusterId, NodeId>(
@@ -95,8 +82,14 @@ void ClusteringHelper::SetClustering(
     const InMemoryClusterer::Clustering& clustering) {
   cluster_sizes_.resize(num_nodes_);
   cluster_ids_.resize(num_nodes_);
-  partitioned_cluster_weights_.resize(num_nodes_);
-  cluster_weights_.resize(num_nodes_);
+  if (clusterer_config_.correlation_clusterer_config()
+          .use_bipartite_objective()) {
+    partitioned_cluster_weights_.resize(num_nodes_);
+  } else {
+    cluster_weights_.resize(num_nodes_);
+  }
+  ABSL_CHECK_EQ(node_weights_.size(), num_nodes_);
+
   if (clustering.empty()) {
     // Keep the following if condition outside the parallel_for to avoid
     // checking this condition for each node.
@@ -105,41 +98,66 @@ void ClusteringHelper::SetClustering(
       parlay::parallel_for(0, num_nodes_, [&](std::size_t i) {
         cluster_sizes_[i] = 1;
         cluster_ids_[i] = i;
-        partitioned_cluster_weights_[i][node_parts_[i]] = NodeWeight(i);
+        partitioned_cluster_weights_[i][node_parts_[i]] = node_weights_[i];
+        partitioned_cluster_weights_[i][1 - node_parts_[i]] = 0.0;
       });
     } else {
       parlay::parallel_for(0, num_nodes_, [&](std::size_t i) {
         cluster_sizes_[i] = 1;
         cluster_ids_[i] = i;
-        cluster_weights_[i] = NodeWeight(i);
+        cluster_weights_[i] = node_weights_[i];
       });
     }
-  } else {
-    // Keep the following if condition outside the parallel_for to avoid
-    // checking this condition for each node.
-    if (clusterer_config_.correlation_clusterer_config()
-            .use_bipartite_objective()) {
-      parlay::parallel_for(0, clustering.size(), [&](std::size_t i) {
-        cluster_sizes_[i] = clustering[i].size();
-        for (NodeId j : clustering[i]) {
-          cluster_ids_[j] = i;
-          partitioned_cluster_weights_[i][node_parts_[j]] += NodeWeight(j);
-        }
-      });
-    } else {
-      parlay::parallel_for(0, clustering.size(), [&](std::size_t i) {
-        cluster_sizes_[i] = clustering[i].size();
-        for (NodeId j : clustering[i]) {
-          cluster_ids_[j] = i;
-          cluster_weights_[i] += NodeWeight(j);
-        }
-      });
-    }
+    return;
   }
+
+  ABSL_CHECK_LE(clustering.size(), num_nodes_);
+  // Keep the following if condition outside the parallel_for to avoid checking
+  // this condition for each node.
+  if (clusterer_config_.correlation_clusterer_config()
+          .use_bipartite_objective()) {
+    parlay::parallel_for(0, num_nodes_, [&](std::size_t i) {
+      cluster_ids_[i] = UINT_E_MAX;
+      cluster_sizes_[i] = 0;
+      partitioned_cluster_weights_[i] = {0.0, 0.0};
+    });
+    parlay::parallel_for(0, clustering.size(), [&](std::size_t i) {
+      cluster_sizes_[i] = clustering[i].size();
+      for (NodeId j : clustering[i]) {
+        ABSL_CHECK_LT(j, num_nodes_)
+            << "Invalid node ID in clustering: " << j
+            << " (number of nodes: " << num_nodes_ << ")";
+        cluster_ids_[j] = i;
+        partitioned_cluster_weights_[i][node_parts_[j]] += node_weights_[j];
+      }
+    });
+  } else {
+    parlay::parallel_for(0, num_nodes_, [&](std::size_t i) {
+      cluster_ids_[i] = UINT_E_MAX;
+      cluster_sizes_[i] = 0;
+      cluster_weights_[i] = 0.0;
+    });
+    parlay::parallel_for(0, clustering.size(), [&](std::size_t i) {
+      cluster_sizes_[i] = clustering[i].size();
+      for (NodeId j : clustering[i]) {
+        ABSL_CHECK_LT(j, num_nodes_)
+            << "Invalid node ID in clustering: " << j
+            << " (number of nodes: " << num_nodes_ << ")";
+        cluster_ids_[j] = i;
+        cluster_weights_[i] += node_weights_[j];
+      }
+    });
+  }
+  parlay::parallel_for(0, num_nodes_, [&](std::size_t i) {
+    ABSL_CHECK_NE(cluster_ids_[i], UINT_E_MAX)
+        << "Node " << i << " is not in any cluster";
+  });
 }
 
 double ClusteringHelper::NodeWeight(NodeId id) const {
-  return id < node_weights_.size() ? node_weights_[id] : 1.0;
+  ABSL_CHECK_GE(id, 0);
+  ABSL_CHECK_LT(id, node_weights_.size());
+  return node_weights_[id];
 }
 
 double ClusteringHelper::ComputeObjective(
@@ -149,6 +167,7 @@ double ClusteringHelper::ComputeObjective(
   std::vector<double> shifted_edge_weight(graph.n);
 
   // Compute cluster statistics contributions of each vertex
+  ABSL_CHECK_EQ(graph.n, num_nodes_);
   parlay::parallel_for(0, graph.n, [&](std::size_t i) {
     ClusterId cluster_id_i = cluster_ids_[i];
     auto add_m = parlay::addm<double>();
@@ -172,6 +191,9 @@ double ClusteringHelper::ComputeObjective(
       graph_mining::in_memory::ReduceAdd<double>(shifted_edge_weight);
 
   double resolution_seq_result = 0.0;
+  ABSL_CHECK_EQ(cluster_sizes_.size(), num_nodes_)
+      << "'ComputeObjective' cannot be called when the cluster ID space is "
+         "unfolded";
   if (clusterer_config_.correlation_clusterer_config()
           .use_bipartite_objective()) {
     // In the bipartite mode, we iterate over the node id space and interpret
@@ -207,8 +229,11 @@ double ClusteringHelper::ComputeObjective(
   } else {
     auto resolution_seq =
         parlay::delayed_seq<double>(graph.n, [&](std::size_t i) {
-          auto cluster_weight = cluster_weights_[cluster_ids_[i]];
-          return node_weights_[i] * (cluster_weight - node_weights_[i]);
+          const ClusterId cluster_id = cluster_ids_[i];
+          ABSL_CHECK_LT(cluster_id, cluster_weights_.size());
+          auto cluster_weight = cluster_weights_[cluster_id];
+          const double node_weight = node_weights_[i];
+          return node_weight * (cluster_weight - node_weight);
         });
     resolution_seq_result = parlay::reduce(resolution_seq) / 2.0;
   }
@@ -225,21 +250,30 @@ void ClusteringHelper::MoveNodeToClusterAsync(NodeId moving_node,
 
 void ClusteringHelper::MoveNodesToClusterAsync(
     const std::vector<gbbs::uintE>& moving_nodes, ClusterId target_cluster_id) {
+  ABSL_CHECK(
+      !clusterer_config_.correlation_clusterer_config().use_synchronous());
   // Move moving_nodes from their current cluster
   bool use_bipartite_objective =
       clusterer_config_.correlation_clusterer_config()
           .use_bipartite_objective();
+  ABSL_CHECK(!moving_nodes.empty());
+  const gbbs::uintE first_moving_node = moving_nodes.front();
+  ABSL_CHECK_LT(first_moving_node, num_nodes_);
   ClusterId current_cluster_id =
-      gbbs::atomic_load(&cluster_ids_[moving_nodes.front()]);
+      gbbs::atomic_load(&cluster_ids_[first_moving_node]);
+  const size_t num_clusters = cluster_sizes_.size();
+  ABSL_CHECK_LT(current_cluster_id, num_clusters);
   gbbs::write_add(&cluster_sizes_[current_cluster_id],
                   -1 * moving_nodes.size());
   double total_node_weight = 0.0;
   std::array<double, 2> partitioned_total_node_weight = {0, 0};
   for (const gbbs::uintE moving_node : moving_nodes) {
-    total_node_weight += node_weights_[moving_node];
+    ABSL_CHECK_LT(moving_node, num_nodes_);
+    const double moving_node_weight = node_weights_[moving_node];
+    total_node_weight += moving_node_weight;
     if (use_bipartite_objective) {
       partitioned_total_node_weight[node_parts_[moving_node]] +=
-          node_weights_[moving_node];
+          moving_node_weight;
     }
   }
 
@@ -277,6 +311,7 @@ void ClusteringHelper::MoveNodesToClusterAsync(
   ClusterId end_cluster_id_boundary =
       use_auxiliary_array_for_temp_cluster_id ? num_nodes_ * 2 : num_nodes_;
   if (target_cluster_id != end_cluster_id_boundary) {
+    ABSL_CHECK_LT(target_cluster_id, num_clusters);
     gbbs::write_add(&cluster_sizes_[target_cluster_id], moving_nodes.size());
     send_nodes_to_cluster(target_cluster_id);
     return;
@@ -289,7 +324,8 @@ void ClusteringHelper::MoveNodesToClusterAsync(
     // each center node, there must exist exactly one available direct-mapping
     // slot (i.e., for an index i in [0, num_nodes_), map it to i+num_nodes_).
     // Use CHECK to verify that this is the case and then use the slot.
-    std::size_t out_of_bound_id = moving_nodes.front() + num_nodes_;
+    std::size_t out_of_bound_id = first_moving_node + num_nodes_;
+    ABSL_CHECK_LT(out_of_bound_id, num_clusters);
     ABSL_CHECK(gbbs::atomic_compare_and_swap<ClusterId>(
         &cluster_sizes_[out_of_bound_id], /*oldval=*/0,
         /*newval=*/moving_nodes.size()));
@@ -297,7 +333,8 @@ void ClusteringHelper::MoveNodesToClusterAsync(
     return;
   }
 
-  std::size_t i = moving_nodes.front();
+  std::size_t i = first_moving_node;
+  ABSL_CHECK_EQ(num_clusters, num_nodes_);
   while (true) {
     if (gbbs::atomic_compare_and_swap<ClusterId>(
             &cluster_sizes_[i], /*oldval=*/0,
@@ -311,6 +348,8 @@ void ClusteringHelper::MoveNodesToClusterAsync(
 
 std::unique_ptr<bool[]> ClusteringHelper::MoveNodesToCluster(
     const std::vector<std::optional<ClusterId>>& moves) {
+  ABSL_CHECK(
+      clusterer_config_.correlation_clusterer_config().use_synchronous());
   ABSL_CHECK_EQ(moves.size(), num_nodes_);
 
   // modified_cluster[i] is true if cluster i has been modified.
@@ -344,6 +383,7 @@ std::unique_ptr<bool[]> ClusteringHelper::MoveNodesToCluster(
             return cluster_ids_[sorted_moving_nodes[i]] ==
                    cluster_ids_[sorted_moving_nodes[j]];
           });
+  ABSL_CHECK(!mark_moving_nodes.empty());
   std::size_t num_mark_moving_nodes = mark_moving_nodes.size() - 1;
 
   bool use_bipartite_objective =
@@ -355,6 +395,7 @@ std::unique_ptr<bool[]> ClusteringHelper::MoveNodesToCluster(
     gbbs::uintE start_id_index = mark_moving_nodes[i];
     gbbs::uintE end_id_index = mark_moving_nodes[i + 1];
     ClusterId prev_id = cluster_ids_[sorted_moving_nodes[start_id_index]];
+    ABSL_CHECK_LT(prev_id, num_nodes_);
     cluster_sizes_[prev_id] -= (end_id_index - start_id_index);
     modified_cluster[prev_id] = true;
     for (const gbbs::uintE node_id :
@@ -372,7 +413,7 @@ std::unique_ptr<bool[]> ClusteringHelper::MoveNodesToCluster(
   // Re-sort moving nodes by new cluster id
   auto resorted_moving_nodes = parlay::stable_sort(
       parlay::make_slice(moving_nodes),
-      [&](gbbs::uintE a, gbbs::uintE b) { return moves[a] < moves[b]; });
+      [&](gbbs::uintE a, gbbs::uintE b) { return *moves[a] < *moves[b]; });
 
   // The number of nodes moving into clusters is given by the boundaries
   // where nodes differ by cluster id
@@ -380,9 +421,10 @@ std::unique_ptr<bool[]> ClusteringHelper::MoveNodesToCluster(
       graph_mining::in_memory::GetBoundaryIndices<gbbs::uintE>(
           resorted_moving_nodes.size(),
           [&resorted_moving_nodes, &moves](std::size_t i, std::size_t j) {
-            return moves[resorted_moving_nodes[i]] ==
-                   moves[resorted_moving_nodes[j]];
+            return *moves[resorted_moving_nodes[i]] ==
+                   *moves[resorted_moving_nodes[j]];
           });
+  ABSL_CHECK(!remark_moving_nodes.empty());
   std::size_t num_remark_moving_nodes = remark_moving_nodes.size() - 1;
 
   // Add these boundary sizes to cluster_sizes_ in parallel, excepting
@@ -393,6 +435,7 @@ std::unique_ptr<bool[]> ClusteringHelper::MoveNodesToCluster(
     gbbs::uintE start_id_index = remark_moving_nodes[i];
     gbbs::uintE end_id_index = remark_moving_nodes[i + 1];
     ClusterId target_cluster_id = *moves[resorted_moving_nodes[start_id_index]];
+    ABSL_CHECK_LE(target_cluster_id, num_nodes_);
     if (target_cluster_id == num_nodes_) return;
     cluster_sizes_[target_cluster_id] += (end_id_index - start_id_index);
     modified_cluster[target_cluster_id] = true;
@@ -424,9 +467,11 @@ std::unique_ptr<bool[]> ClusteringHelper::MoveNodesToCluster(
 
     // Indexing into these cluster ids gives the new cluster ids for new
     // clusters; update cluster_ids_ and cluster_sizes_ appropriately
+    ABSL_CHECK_GE(num_remark_moving_nodes, 1);
     gbbs::uintE start_id_index =
         remark_moving_nodes[num_remark_moving_nodes - 1];
     gbbs::uintE end_id_index = remark_moving_nodes[num_remark_moving_nodes];
+    ABSL_CHECK_GE(zero_clusters.size(), end_id_index - start_id_index);
     parlay::parallel_for(start_id_index, end_id_index, [&](std::size_t i) {
       ClusterId cluster_id = zero_clusters[i - start_id_index];
       gbbs::uintE moving_node_id = resorted_moving_nodes[i];
@@ -448,19 +493,21 @@ std::unique_ptr<bool[]> ClusteringHelper::MoveNodesToCluster(
 namespace {
 
 // Returns a function that given a node ID, indicates whether it belongs to
-// moving_nodes. All entries in moving_nodes are assumed to be smaller than
-// num_nodes.
+// moving_nodes. All entries in moving_nodes must be smaller than num_nodes.
 std::function<bool(gbbs::uintE)> NodeIsMovingFunction(
     const std::vector<gbbs::uintE>& moving_nodes, size_t num_nodes) {
   if (moving_nodes.size() == 1) {
+    gbbs::uintE moving_node = moving_nodes.front();
+    ABSL_CHECK_LT(moving_node, num_nodes);
     // Special handling for the case of a single moving node, which is a common
     // case in which we want to avoid using O(num_nodes) memory.
-    return [single_moving_node_id = moving_nodes[0]](gbbs::uintE node_id) {
+    return [single_moving_node_id = moving_node](gbbs::uintE node_id) {
       return node_id == single_moving_node_id;
     };
   } else {
     std::vector<bool> node_is_moving(num_nodes, false);
     for (gbbs::uintE moving_node : moving_nodes) {
+      ABSL_CHECK_LT(moving_node, num_nodes);
       node_is_moving[moving_node] = true;
     }
     return [node_is_moving = std::move(node_is_moving)](gbbs::uintE node_id) {
@@ -474,9 +521,9 @@ std::function<bool(gbbs::uintE)> NodeIsMovingFunction(
 ClusteringHelper::ClusterMove ClusteringHelper::BestMove(
     const gbbs::symmetric_ptr_graph<gbbs::symmetric_vertex, float>& graph,
     const std::vector<gbbs::uintE>& moving_nodes) {
+  ABSL_CHECK_EQ(graph.n, num_nodes_);
   const auto& config = clusterer_config_.correlation_clusterer_config();
   const double offset = config.edge_weight_offset();
-
   const std::function<bool(gbbs::uintE)> node_is_moving_fn =
       NodeIsMovingFunction(moving_nodes, graph.n);
 
@@ -530,6 +577,7 @@ ClusteringHelper::ClusterMove ClusteringHelper::BestMove(
   // NetWeight().
 
   std::function<double(ClusterId)> get_cluster_weight = [&](ClusterId cluster) {
+    ABSL_CHECK_LT(cluster, cluster_sizes_.size());
     return config.use_bipartite_objective()
                ? gbbs::atomic_load(
                      &(partitioned_cluster_weights_[cluster][0])) +
@@ -570,6 +618,19 @@ absl::StatusOr<graph_mining::in_memory::GraphWithWeights> CompressGraph(
     gbbs::symmetric_ptr_graph<gbbs::symmetric_vertex, float>& original_graph,
     const std::vector<gbbs::uintE>& cluster_ids,
     const ClusteringHelper& helper) {
+  if (cluster_ids.size() != original_graph.n) {
+    return absl::InvalidArgumentError(absl::StrCat(
+        "The length of 'cluster_ids' (", cluster_ids.size(),
+        ") does not match the number of nodes in 'original_graph' (",
+        original_graph.n, ")"));
+  }
+  if (helper.NodeWeights().size() != original_graph.n) {
+    return absl::InvalidArgumentError(absl::StrCat(
+        "The number of node weights in 'helper' (", helper.NodeWeights().size(),
+        ") does not match the number of "
+        "nodes in 'original_graph' (",
+        original_graph.n, ")"));
+  }
   // Obtain the number of vertices in the new graph
   auto get_cluster_ids = [&](size_t i) { return cluster_ids[i]; };
   auto seq_cluster_ids =
@@ -593,6 +654,7 @@ absl::StatusOr<graph_mining::in_memory::GraphWithWeights> CompressGraph(
   std::size_t num_edges = offsets_edges.num_edges;
   std::unique_ptr<std::tuple<gbbs::uintE, float>[]> edges =
       std::move(offsets_edges.edges);
+  ABSL_CHECK_NE(edges, nullptr);
 
   // Obtain cluster ids and node weights of all vertices
   std::vector<CompressedGraphNodeWeight> node_weights(original_graph.n);
@@ -620,6 +682,7 @@ absl::StatusOr<graph_mining::in_memory::GraphWithWeights> CompressGraph(
             return node_weights_sort[i].cluster_id ==
                    node_weights_sort[j].cluster_id;
           });
+  ABSL_CHECK(!mark_node_weights.empty());
   std::size_t num_mark_node_weights = mark_node_weights.size() - 1;
 
   // Reset helper to singleton clusters, with appropriate node weights
@@ -638,6 +701,7 @@ absl::StatusOr<graph_mining::in_memory::GraphWithWeights> CompressGraph(
             },
             {.cluster_id = node_weights_sort[start_id_index].cluster_id,
              .node_weight = 0.0});
+    ABSL_CHECK_LT(node_weight.cluster_id, num_compressed_vertices);
     new_node_weights[node_weight.cluster_id] = node_weight.node_weight;
   });
 
@@ -653,6 +717,7 @@ void ClusteringHelper::MaybeUnfoldClusterIdSpace() {
            .use_auxiliary_array_for_temp_cluster_id()) {
     return;
   }
+  ABSL_CHECK_EQ(cluster_sizes_.size(), num_nodes_);
   size_t new_size = num_nodes_ * 2;
   cluster_sizes_.resize(new_size);
   if (clusterer_config_.correlation_clusterer_config()
@@ -713,8 +778,8 @@ void ClusteringHelper::MaybeFoldClusterIdSpace(bool moved_clusters[]) {
     //
     // - adjusting cluster_sizes_[inbound_id]
     // - adjusting cluster_weights_[inbound_id]
-    // - marking moved_clusters[inboud_id] for next iteration
-    // - adjusting the outbound-inboud cluster id map auxiliary_cluster_ids
+    // - marking moved_clusters[inbound_id] for next iteration
+    // - adjusting the outbound-inbound cluster id map auxiliary_cluster_ids
     //
     // Notably, rename_cluster does *not* adjust cluster_ids_. That requires a
     // separate step below and happens after all outbound-inboud mapping is
@@ -792,6 +857,7 @@ BipartiteGraphCompressionMetadata PrepareBipartiteGraphCompression(
     const std::vector<NodePartId>& parts,
     std::vector<std::array<gbbs::uintE, 2>>&&
         cluster_id_and_part_to_new_node_ids) {
+  ABSL_CHECK_EQ(cluster_ids.size(), parts.size());
   BipartiteGraphCompressionMetadata result;
   std::size_t num_original_nodes = cluster_ids.size();
 
@@ -810,10 +876,14 @@ BipartiteGraphCompressionMetadata PrepareBipartiteGraphCompression(
   parlay::sequence<gbbs::uintE> cluster_id_and_part_to_new_node_id_prefix_sum(
       num_original_nodes * 2, 0);
   parlay::parallel_for(0, num_original_nodes, [&](std::size_t i) {
+    ABSL_CHECK_LT(cluster_ids[i], num_original_nodes);
+    NodePartId part = parts[i];
+    ABSL_CHECK_GE(part, 0);
+    ABSL_CHECK_LE(part, 1);
     // The contention is benign, because we can only set the value from 0 to 1.
     gbbs::CAS<gbbs::uintE>(
         &cluster_id_and_part_to_new_node_id_prefix_sum[cluster_ids[i] * 2 +
-                                                       parts[i]],
+                                                       part],
         /*oldv=*/0, /*newv=*/1);
   });
 
@@ -871,15 +941,21 @@ std::vector<gbbs::uintE> FlattenBipartiteClustering(
     const std::vector<NodePartId>& node_parts,
     const std::vector<std::array<gbbs::uintE, 2>>&
         cluster_id_and_part_to_new_node_ids) {
-  std::size_t cluster_size = cluster_ids.size();
-  ABSL_CHECK_EQ(node_parts.size(), cluster_size);
-  std::vector<gbbs::uintE> new_cluster_ids(cluster_size);
-  parlay::parallel_for(0, cluster_size, [&](std::size_t i) {
+  std::size_t clustering_size = cluster_ids.size();
+  ABSL_CHECK_EQ(node_parts.size(), clustering_size);
+  std::vector<gbbs::uintE> new_cluster_ids(clustering_size);
+  parlay::parallel_for(0, clustering_size, [&](std::size_t i) {
+    const gbbs::uintE cluster_id = cluster_ids[i];
+    if (cluster_id == UINT_E_MAX) {
+      new_cluster_ids[i] = UINT_E_MAX;
+      return;
+    }
+    ABSL_CHECK_LT(cluster_id, cluster_id_and_part_to_new_node_ids.size());
+    const NodePartId node_part = node_parts[i];
+    ABSL_CHECK_GE(node_part, 0);
+    ABSL_CHECK_LE(node_part, 1);
     new_cluster_ids[i] =
-        (cluster_ids[i] == UINT_E_MAX)
-            ? UINT_E_MAX
-            : cluster_id_and_part_to_new_node_ids[cluster_ids[i]]
-                                                 [node_parts[i]];
+        cluster_id_and_part_to_new_node_ids[cluster_id][node_part];
   });
   return new_cluster_ids;
 }

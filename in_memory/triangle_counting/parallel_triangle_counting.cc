@@ -14,7 +14,10 @@
 
 #include "in_memory/triangle_counting/parallel_triangle_counting.h"
 
+#include <cstdint>
+
 #include "absl/status/status.h"
+#include "absl/status/statusor.h"
 #include "benchmarks/TriangleCounting/ShunTangwongsan15/Triangle.h"
 #include "gbbs/macros.h"
 #include "in_memory/parallel/scheduler.h"

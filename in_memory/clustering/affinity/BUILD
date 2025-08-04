@@ -12,9 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-load("@com_google_protobuf//bazel:cc_proto_library.bzl", "cc_proto_library")
-load("@com_google_protobuf//bazel:proto_library.bzl", "proto_library")
-load("@com_google_protobuf//bazel:py_proto_library.bzl", "py_proto_library")
+load("@protobuf//bazel:cc_proto_library.bzl", "cc_proto_library")
+load("@protobuf//bazel:proto_library.bzl", "proto_library")
+load("@protobuf//bazel:py_proto_library.bzl", "py_proto_library")
 
 load("//utils:build_defs.bzl", "graph_mining_cc_test")
 
@@ -32,7 +32,7 @@ graph_mining_cc_test(
         ":weight_threshold",
         "//in_memory:status_macros",
         "//utils/parse_proto:parse_text_proto",
-        "@com_google_googletest//:gtest_main",
+        "@googletest//:gtest_main",
     ],
 )
 
@@ -41,10 +41,10 @@ graph_mining_cc_test(
     srcs = ["affinity_test.cc"],
     deps = [
         ":affinity",
-        "@com_google_googletest//:gtest_main",
-        "@com_google_absl//absl/algorithm:container",
-        "@com_google_absl//absl/random",
-        "@com_google_absl//absl/strings",
+        "@googletest//:gtest_main",
+        "@abseil-cpp//absl/algorithm:container",
+        "@abseil-cpp//absl/random",
+        "@abseil-cpp//absl/strings",
         "//in_memory/clustering:clustering_utils",
         "//in_memory/clustering:config_cc_proto",
         "//in_memory/clustering:graph",
@@ -59,9 +59,9 @@ graph_mining_cc_test(
     srcs = ["affinity_internal_test.cc"],
     deps = [
         ":affinity_internal",
-        "@com_google_googletest//:gtest_main",
-        "@com_google_absl//absl/strings",
-        "@com_google_absl//absl/strings:string_view",
+        "@googletest//:gtest_main",
+        "@abseil-cpp//absl/strings",
+        "@abseil-cpp//absl/strings:string_view",
         "//in_memory/clustering:graph",
         "//in_memory/clustering:in_memory_clusterer",
         "//in_memory:status_macros",
@@ -78,9 +78,9 @@ cc_library(
         ":affinity_cc_proto",
         ":dynamic_weight_threshold",
         "//in_memory/clustering:config_cc_proto",
-        "@com_google_absl//absl/status",
-        "@com_google_absl//absl/status:statusor",
-        "@com_google_absl//absl/strings",
+        "@abseil-cpp//absl/status",
+        "@abseil-cpp//absl/status:statusor",
+        "@abseil-cpp//absl/strings",
     ],
 )
 
@@ -96,8 +96,8 @@ cc_library(
         "//in_memory/clustering:config_cc_proto",
         "//in_memory/clustering:graph",
         "//in_memory/clustering:in_memory_clusterer",
-        "@com_google_absl//absl/status",
-        "@com_google_absl//absl/status:statusor",
+        "@abseil-cpp//absl/status",
+        "@abseil-cpp//absl/status:statusor",
     ],
     alwayslink = 1,
 )
@@ -114,8 +114,10 @@ cc_library(
         "//in_memory/clustering:in_memory_clusterer",
         "//in_memory/clustering:tiebreaking",
         "//in_memory/connected_components:asynchronous_union_find",
-        "@com_google_absl//absl/container:flat_hash_set",
-        "@com_google_absl//absl/log:absl_check",
+        "@abseil-cpp//absl/base:core_headers",
+        "@abseil-cpp//absl/container:flat_hash_set",
+        "@abseil-cpp//absl/log:absl_check",
+        "@abseil-cpp//absl/status:statusor",
     ],
 )
 
@@ -160,8 +162,8 @@ cc_library(
         "//in_memory/clustering:in_memory_clusterer",
         "//in_memory/parallel:parallel_graph_utils",
         "//in_memory/parallel:scheduler",
-        "@com_google_absl//absl/log:absl_check",
-        "@com_google_absl//absl/status:statusor",
+        "@abseil-cpp//absl/log:absl_check",
+        "@abseil-cpp//absl/status:statusor",
     ],
     alwayslink = 1,
 )
@@ -180,7 +182,7 @@ graph_mining_cc_test(
         "//in_memory/clustering:in_memory_clusterer",
         "//in_memory/clustering:types",
         "//utils/parse_proto:parse_text_proto",
-        "@com_google_googletest//:gtest_main",
+        "@googletest//:gtest_main",
     ],
 )
 
@@ -189,6 +191,7 @@ cc_library(
     srcs = ["parallel_affinity_internal.cc"],
     hdrs = ["parallel_affinity_internal.h"],
     deps = [
+        ":affinity_cc_proto",
         "//in_memory/clustering:config_cc_proto",
         "//in_memory/clustering:in_memory_clusterer",
         "//in_memory/clustering:types",
@@ -196,15 +199,15 @@ cc_library(
         "//in_memory/parallel:parallel_graph_utils",
         "//in_memory/parallel:parallel_sequence_ops",
         "//in_memory/tree_partitioner:min_size_tree_partitioning",
+        "@abseil-cpp//absl/container:flat_hash_map",
+        "@abseil-cpp//absl/log:absl_check",
+        "@abseil-cpp//absl/log:absl_log",
+        "@abseil-cpp//absl/status:statusor",
+        "@abseil-cpp//absl/types:span",
         "@com_github_gbbs//gbbs:bridge",
         "@com_github_gbbs//gbbs:graph",
         "@com_github_gbbs//gbbs:macros",
         "@com_github_gbbs//gbbs:vertex",
-        "@com_google_absl//absl/container:flat_hash_map",
-        "@com_google_absl//absl/log:absl_check",
-        "@com_google_absl//absl/log:absl_log",
-        "@com_google_absl//absl/status:statusor",
-        "@com_google_absl//absl/types:span",
         "@parlaylib//parlay:monoid",
         "@parlaylib//parlay:parallel",
         "@parlaylib//parlay:primitives",
@@ -219,8 +222,8 @@ cc_library(
     hdrs = ["dynamic_weight_threshold.h"],
     deps = [
         ":dynamic_weight_threshold_cc_proto",
-        "@com_google_absl//absl/status",
-        "@com_google_absl//absl/status:statusor",
+        "@abseil-cpp//absl/status",
+        "@abseil-cpp//absl/status:statusor",
     ],
 )
 
@@ -240,11 +243,11 @@ graph_mining_cc_test(
         "//in_memory/connected_components:asynchronous_union_find",
         "//in_memory/parallel:scheduler",
         "//utils/parse_proto:parse_text_proto",
+        "@abseil-cpp//absl/strings:string_view",
         "@com_github_gbbs//gbbs:graph",
         "@com_github_gbbs//gbbs:macros",
         "@com_github_gbbs//gbbs:vertex",
-        "@com_google_absl//absl/strings:string_view",
-        "@com_google_googletest//:gtest_main",
+        "@googletest//:gtest_main",
         "@parlaylib//parlay:sequence",
         "@parlaylib//parlay/internal:group_by",
     ],
@@ -258,7 +261,7 @@ graph_mining_cc_test(
         ":dynamic_weight_threshold_cc_proto",
         "//in_memory:status_macros",
         "//utils/parse_proto:parse_text_proto",
-        "@com_google_absl//absl/status",
-        "@com_google_googletest//:gtest_main",
+        "@abseil-cpp//absl/status",
+        "@googletest//:gtest_main",
     ],
 )
