@@ -35,7 +35,7 @@ cc_library(
     name = "parse_text_proto_internal",
     hdrs = ["parse_text_proto_internal.h"],
     deps = [
-        "@com_google_protobuf//:protobuf",
+        "@protobuf//:protobuf",
         "@abseil-cpp//absl/log:absl_check",
         "@abseil-cpp//absl/strings",
     ],
