@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef THIRD_PARTY_GRAPH_MINING_IN_MEMORY_CLUSTERING_CLIQUE_CONTAINER_CLIQUE_CONTAINER_H_
-#define THIRD_PARTY_GRAPH_MINING_IN_MEMORY_CLUSTERING_CLIQUE_CONTAINER_CLIQUE_CONTAINER_H_
+#ifndef THIRD_PARTY_GRAPH_MINING_IN_MEMORY_CLUSTERING_CLIQUE_AGGREGATOR_CLIQUE_AGGREGATOR_H_
+#define THIRD_PARTY_GRAPH_MINING_IN_MEMORY_CLUSTERING_CLIQUE_AGGREGATOR_CLIQUE_AGGREGATOR_H_
 
 #include "absl/status/statusor.h"
 #include "in_memory/clustering/config.pb.h"
@@ -36,7 +36,7 @@ namespace in_memory {
 // choose 2). As long as the density parameter is <= 0.9, in typical cases the
 // number of clusters returned is similar to the number of nodes in the graph.
 // For the algorithm description and analysis, see go/dense-subgraphs-paper.
-class CliqueContainerClusterer : public InMemoryClusterer {
+class CliqueAggregatorClusterer : public InMemoryClusterer {
  public:
   Graph* MutableGraph() override { return &graph_; }
 
@@ -51,4 +51,4 @@ class CliqueContainerClusterer : public InMemoryClusterer {
 }  // namespace in_memory
 }  // namespace graph_mining
 
-#endif  // THIRD_PARTY_GRAPH_MINING_IN_MEMORY_CLUSTERING_CLIQUE_CONTAINER_CLIQUE_CONTAINER_H_
+#endif  // THIRD_PARTY_GRAPH_MINING_IN_MEMORY_CLUSTERING_CLIQUE_AGGREGATOR_CLIQUE_AGGREGATOR_H_

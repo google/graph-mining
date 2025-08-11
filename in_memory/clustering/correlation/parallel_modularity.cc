@@ -151,7 +151,7 @@ ParallelModularityClusterer::ClusterAndReturnClusterIdsWithProgressReporting(
       std::vector<ClusterId> cluster_ids,
       ParallelCorrelationClusterer::RefineClustersWithProgressReporting(
           clustering, helper, std::move(report_progress)));
-  // TODO: Avoid this conversion by changing the definition of
+  // TODO: b/399828374 - Avoid this conversion by changing the definition of
   // `ClusterId`.
   std::vector<NodeId> cluster_ids_converted(cluster_ids.size());
   parlay::parallel_for(0, cluster_ids.size(), [&](std::size_t i) {

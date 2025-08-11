@@ -101,7 +101,7 @@ std::vector<gbbs::uintE> FlattenClustering(
 
 // Holds a GBBS graph and a corresponding node weights
 struct GraphWithWeights {
-  GraphWithWeights() {}
+  GraphWithWeights() = default;
   GraphWithWeights(
       std::unique_ptr<gbbs::symmetric_ptr_graph<gbbs::symmetric_vertex, float>>
           graph_,

@@ -1,5 +1,5 @@
-#ifndef THIRD_PARTY_GRAPH_MINING_IN_MEMORY_CLUSTERING_CLIQUE_CONTAINER_GRAPHS_H_
-#define THIRD_PARTY_GRAPH_MINING_IN_MEMORY_CLUSTERING_CLIQUE_CONTAINER_GRAPHS_H_
+#ifndef THIRD_PARTY_GRAPH_MINING_IN_MEMORY_CLUSTERING_CLIQUE_AGGREGATOR_GRAPHS_H_
+#define THIRD_PARTY_GRAPH_MINING_IN_MEMORY_CLUSTERING_CLIQUE_AGGREGATOR_GRAPHS_H_
 
 #include <cstdint>
 #include <memory>
@@ -10,7 +10,7 @@
 #include "absl/base/nullability.h"
 #include "gbbs/bridge.h"
 #include "gbbs/macros.h"
-#include "in_memory/clustering/clique_container/bitset.h"
+#include "in_memory/clustering/clique_aggregator/bitset.h"
 #include "in_memory/clustering/gbbs_graph.h"
 #include "in_memory/clustering/types.h"
 
@@ -18,7 +18,7 @@ namespace graph_mining::in_memory {
 
 // Two implementations of a graph, with the same API, but not using inheritance.
 // The goal is to enable templated code that works with both graph
-// implementations. Specifically, in the `CliqueContainerClusterer`
+// implementations. Specifically, in the `CliqueAggregatorClusterer`
 // implementation, we use the `BitSetGraph` for recursive calls (since in a
 // recursive call the graph typically has <= 200 nodes), and the
 // `GbbsGraphWrapper` for the outmost call (when the graphs may be very large).
@@ -157,4 +157,4 @@ int64_t NumEdges(const GraphT& graph) {
 
 }  // namespace graph_mining::in_memory
 
-#endif  // THIRD_PARTY_GRAPH_MINING_IN_MEMORY_CLUSTERING_CLIQUE_CONTAINER_GRAPHS_H_
+#endif  // THIRD_PARTY_GRAPH_MINING_IN_MEMORY_CLUSTERING_CLIQUE_AGGREGATOR_GRAPHS_H_

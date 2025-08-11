@@ -21,7 +21,7 @@ import public "in_memory/clustering/affinity/affinity.proto";
 import public "in_memory/clustering/correlation/correlation.proto";
 import public "in_memory/clustering/correlation/modularity.proto";
 
-import "in_memory/clustering/clique_container/clique_container.proto";
+import "in_memory/clustering/clique_aggregator/clique_aggregator.proto";
 import "in_memory/clustering/coconductance/coconductance.proto";
 import "in_memory/clustering/parline/parline.proto";
 
@@ -102,7 +102,7 @@ message ClustererConfig {
     graph_mining.in_memory.LinePartitionerConfig line_partitioner_config = 14;
     ParHacConfig parhac_clusterer_config = 15;
     TeraHacConfig terahac_clusterer_config = 17;
-    graph_mining.in_memory.CliqueContainerConfig clique_container_config = 19;
+    graph_mining.in_memory.CliqueAggregatorConfig clique_aggregator_config = 19;
   }
 }
 

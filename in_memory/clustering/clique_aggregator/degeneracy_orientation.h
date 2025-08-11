@@ -1,5 +1,5 @@
-#ifndef THIRD_PARTY_GRAPH_MINING_IN_MEMORY_CLUSTERING_CLIQUE_CONTAINER_DEGENERACY_ORIENTATION_H_
-#define THIRD_PARTY_GRAPH_MINING_IN_MEMORY_CLUSTERING_CLIQUE_CONTAINER_DEGENERACY_ORIENTATION_H_
+#ifndef THIRD_PARTY_GRAPH_MINING_IN_MEMORY_CLUSTERING_CLIQUE_AGGREGATOR_DEGENERACY_ORIENTATION_H_
+#define THIRD_PARTY_GRAPH_MINING_IN_MEMORY_CLUSTERING_CLIQUE_AGGREGATOR_DEGENERACY_ORIENTATION_H_
 
 #include <bit>
 #include <cstdint>
@@ -7,8 +7,9 @@
 #include <utility>
 #include <vector>
 
+#include "absl/base/nullability.h"
 #include "absl/types/span.h"
-#include "in_memory/clustering/clique_container/graphs.h"
+#include "in_memory/clustering/clique_aggregator/graphs.h"
 #include "in_memory/clustering/gbbs_graph.h"
 #include "in_memory/clustering/types.h"
 #include "utils/container/fixed_size_priority_queue.h"
@@ -21,7 +22,7 @@ namespace in_memory {
 // the minimum possible degree in the subgraph induced by itself and the nodes
 // that come after it in the ordering.
 // `GraphT` should be one of the types defined in
-// https://github.com/google/graph-mining/tree/main/in_memory/clustering/clique_container/graphs.h
+// https://github.com/google/graph-mining/tree/main/in_memory/clustering/clique_aggregator/graphs.h
 // (`BitSetGraph` or `GbbsGraphWrapper`).
 template <typename GraphT>
 std::vector<NodeId> DegeneracyOrdering(const GraphT& graph) {
@@ -77,4 +78,4 @@ DirectGraph(const GbbsGraphWrapper<UnweightedGbbsGraph>& graph,
 }  // namespace in_memory
 }  // namespace graph_mining
 
-#endif  // THIRD_PARTY_GRAPH_MINING_IN_MEMORY_CLUSTERING_CLIQUE_CONTAINER_DEGENERACY_ORIENTATION_H_
+#endif  // THIRD_PARTY_GRAPH_MINING_IN_MEMORY_CLUSTERING_CLIQUE_AGGREGATOR_DEGENERACY_ORIENTATION_H_

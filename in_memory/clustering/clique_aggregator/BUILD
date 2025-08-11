@@ -7,12 +7,12 @@ package(
 )
 
 cc_library(
-    name = "clique_container",
-    srcs = ["clique_container.cc"],
-    hdrs = ["clique_container.h"],
+    name = "clique_aggregator",
+    srcs = ["clique_aggregator.cc"],
+    hdrs = ["clique_aggregator.h"],
     deps = [
         ":bitset",
-        ":clique_container_cc_proto",
+        ":clique_aggregator_cc_proto",
         ":degeneracy_orientation",
         ":graphs",
         "//in_memory/clustering:config_cc_proto",
@@ -71,11 +71,11 @@ cc_library(
 )
 
 proto_library(
-    name = "clique_container_proto",
-    srcs = ["clique_container.proto"],
+    name = "clique_aggregator_proto",
+    srcs = ["clique_aggregator.proto"],
 )
 
 cc_proto_library(
-    name = "clique_container_cc_proto",
-    deps = [":clique_container_proto"],
+    name = "clique_aggregator_cc_proto",
+    deps = [":clique_aggregator_proto"],
 )

@@ -31,7 +31,7 @@ class MinimumLinearArrangement {
  public:
   explicit MinimumLinearArrangement(
       const MinimumLinearArrangementConfig& config);
-  ~MinimumLinearArrangement() {}
+  ~MinimumLinearArrangement() = default;
 
   // Computes and returns a minimum linear arrangement of an input graph. The
   // returned vector is a permutation of the node ids in the input graph

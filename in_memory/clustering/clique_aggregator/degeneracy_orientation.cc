@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "in_memory/clustering/clique_container/degeneracy_orientation.h"
+#include "in_memory/clustering/clique_aggregator/degeneracy_orientation.h"
 
 #include <memory>
 #include <optional>
@@ -23,7 +23,7 @@
 #include "absl/base/nullability.h"
 #include "absl/log/absl_check.h"
 #include "absl/types/span.h"
-#include "in_memory/clustering/clique_container/graphs.h"
+#include "in_memory/clustering/clique_aggregator/graphs.h"
 #include "in_memory/clustering/config.pb.h"
 #include "in_memory/clustering/gbbs_graph.h"
 #include "in_memory/clustering/in_memory_clusterer.h"

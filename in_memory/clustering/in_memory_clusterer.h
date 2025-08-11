@@ -124,7 +124,7 @@ class InMemoryClusterer {
   // the graph - 1].
   virtual absl::StatusOr<std::vector<NodeId>> ClusterAndReturnClusterIds(
       const graph_mining::in_memory::ClustererConfig& config) const {
-    // TODO: Replace this with an actual implementation that
+    // TODO: b/397376625 - Replace this with an actual implementation that
     // invokes the Cluster() method and converts the result to the desired
     // format.
     return absl::UnimplementedError(
@@ -221,7 +221,7 @@ class InMemoryClustererWithProgressReporting : public InMemoryClusterer {
       const graph_mining::in_memory::ClustererConfig& config,
       std::optional<gbbs::ReportProgressCallback> /*report_progress*/)
       const {
-    // TODO: Replace this with an actual implementation that
+    // TODO: b/397376625 - Replace this with an actual implementation that
     // invokes the Cluster() method and converts the result to the desired
     // format.
     return absl::UnimplementedError(

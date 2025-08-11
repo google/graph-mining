@@ -35,7 +35,7 @@ class ParallelModularityClusterer : public ParallelCorrelationClusterer {
  public:
   using InMemoryClusterer::Clustering;
 
-  ~ParallelModularityClusterer() override {}
+  ~ParallelModularityClusterer() override = default;
 
   Graph* absl_nonnull MutableGraph() ABSL_ATTRIBUTE_LIFETIME_BOUND override {
     return &graph_;

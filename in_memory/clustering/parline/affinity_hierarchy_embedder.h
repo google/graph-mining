@@ -34,7 +34,7 @@ class AffinityHierarchyEmbedder : public LinearEmbedder {
   // the config are filled in with defaults if not provided.
   explicit AffinityHierarchyEmbedder(
       const graph_mining::in_memory::AffinityClustererConfig& config);
-  ~AffinityHierarchyEmbedder() override {}
+  ~AffinityHierarchyEmbedder() override = default;
 
   // TODO: Replace std::vector with a parallel version.
   absl::StatusOr<std::vector<gbbs::uintE>> EmbedGraph(

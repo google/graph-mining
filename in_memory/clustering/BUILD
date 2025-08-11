@@ -239,7 +239,7 @@ proto_library(
     srcs = ["config.proto"],
     deps = [
         "//in_memory/clustering/affinity:affinity_proto",
-        "//in_memory/clustering/clique_container:clique_container_proto",
+        "//in_memory/clustering/clique_aggregator:clique_aggregator_proto",
         "//in_memory/clustering/coconductance:coconductance_proto",
         "//in_memory/clustering/correlation:correlation_proto",
         "//in_memory/clustering/correlation:modularity_proto",
