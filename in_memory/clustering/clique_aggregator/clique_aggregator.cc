@@ -39,17 +39,11 @@
 #include "in_memory/clustering/gbbs_graph.h"
 #include "in_memory/clustering/in_memory_clusterer.h"
 #include "in_memory/clustering/types.h"
+#include "in_memory/status_macros.h"
 
 namespace graph_mining {
 namespace in_memory {
 namespace {
-
-// Appends vector2 to vector1, destroying vector2 in the process.
-void ConcatenateVectors(std::vector<ClusterContents>& vector1,
-                        std::vector<ClusterContents>&& vector2) {
-  vector1.insert(vector1.end(), std::make_move_iterator(vector2.begin()),
-                 std::make_move_iterator(vector2.end()));
-}
 
 double NChoose2(double n) { return n * (n - 1.0) / 2.0; }
 
@@ -347,7 +341,7 @@ std::vector<BitSet> BuildRecursiveCoveredSets(
 // Recursive function for computing a clique aggregator.
 // * `graph` is the input graph.
 // * `node_id_map` maps node ids of `graph` to the "global" node IDs that should
-//   be used to return the result.
+//   be used in `result`.
 // * `partial_cluster` is the set of nodes that should be added to the
 //   returned clique aggregator.
 // * `min_density` is the minimum density of the clusters to be
@@ -362,43 +356,55 @@ std::vector<BitSet> BuildRecursiveCoveredSets(
 //   difference between an empty optional and an empty Span. In the former case
 //   pruning is not performed in all recursive calls, while in the latter case
 //   recursive calls may be passed a non-empty `covered_sets`.
+// * `allow_disconnected_clusters`, when set to true, allows the function return
+//   disconnected clusters (as long as their density >= `min_density`).
+// * `result` is the parameter that outputs the result. Theis function
+//   appends the clusters found to `result` and increases its counters.
 // Template parameters:
 // * `GraphT` is the type of the graph used for graph parameter.
 // * `RecursiveGraphT` is the type of the graph used for the recursive calls.
 template <typename GraphT, typename RecursiveGraphT>
-std::vector<std::vector<NodeId>> CliqueAggregator(
-    const GraphT& graph, const std::vector<NodeId>& node_id_map,
+void CliqueAggregator(
+    const GraphT& graph, const absl::Span<const NodeId> node_id_map,
     const absl::Span<const NodeId> partial_cluster, double min_density,
-    std::optional<absl::Span<const BitSet>> covered_sets) {
+    std::optional<absl::Span<const BitSet>> covered_sets,
+    bool allow_disconnected_clusters,
+    CliqueAggregatorClusterer::ClusteringWithStatistics& result) {
   int num_nodes = graph.NumNodes();
   const bool bron_kerbosch_pruning = covered_sets.has_value();
+  ++result.num_recursive_calls;
 
   if (bron_kerbosch_pruning) {
     for (const auto& covered_set : *covered_sets) {
-      if (covered_set.Size() == num_nodes) return {};
+      if (covered_set.Size() == num_nodes) return;
     }
   }
 
   // Number of *undirected* edges.
   int64_t num_edges = NumEdges(graph) / 2;
 
-  if (CombinedDensity(num_nodes, num_edges, partial_cluster.size()) >=
-      min_density) {
-    if (partial_cluster.size() + graph.NumNodes() <= 1) {
-      // Don't return clusters of size 1.
-      return {};
-    } else {
-      std::vector<NodeId> result(partial_cluster.begin(),
-                                 partial_cluster.end());
-      result.insert(result.end(), node_id_map.begin(), node_id_map.end());
-      return {result};
+  if (allow_disconnected_clusters || num_nodes <= 1) {
+    double combined_density =
+        CombinedDensity(num_nodes, num_edges, partial_cluster.size());
+    if (combined_density >= min_density) {
+      if (partial_cluster.size() + graph.NumNodes() <= 1) {
+        // Don't add clusters of size 1.
+        return;
+      } else {
+        std::vector<NodeId> current_cluster(partial_cluster.begin(),
+                                            partial_cluster.end());
+        current_cluster.insert(current_cluster.end(), node_id_map.begin(),
+                               node_id_map.end());
+        result.AddCluster(std::move(current_cluster), combined_density);
+        return;
+      }
     }
   }
+  ++result.num_recursive_calls_not_immediately_pruned;
 
   auto degeneracy_ordering = DegeneracyOrdering(graph);
   auto [directed_graph, transposed_graph] =
       DirectGraph(graph, degeneracy_ordering);
-  std::vector<std::vector<NodeId>> result;
 
   for (int i = 0; i < degeneracy_ordering.size(); ++i) {
     auto node_id = degeneracy_ordering[i];
@@ -433,35 +439,42 @@ std::vector<std::vector<NodeId>> CliqueAggregator(
                                                   partial_cluster.end());
     recursive_partial_cluster.push_back(node_id_map[node_id]);
 
-    ConcatenateVectors(
-        result, CliqueAggregator<RecursiveGraphT, RecursiveGraphT>(
-                    *recursive_graph, recursive_node_id_map,
-                    recursive_partial_cluster, min_density,
-                    bron_kerbosch_pruning
-                        ? std::make_optional(absl::MakeSpan(recursive_covered))
-                        : std::nullopt));
+    CliqueAggregator<RecursiveGraphT, RecursiveGraphT>(
+        *recursive_graph, recursive_node_id_map, recursive_partial_cluster,
+        min_density,
+        bron_kerbosch_pruning
+            ? std::make_optional(absl::MakeSpan(recursive_covered))
+            : std::nullopt,
+        // We allow the recursive call to output disconnected
+        // clusters, since each node in each output cluster is
+        // connected to `node_id`.
+        /*allow_disconnected_clusters=*/true, result);
 
     // Now, delete the node and exit early if the density is high enough.
     --num_nodes;
     num_edges -= directed_graph->Degree(node_id);
-    if (CombinedDensity(num_nodes, num_edges, partial_cluster.size()) >=
-        min_density) {
-      if (partial_cluster.size() + num_nodes <= 1) return result;
 
-      if (bron_kerbosch_pruning &&
-          RemainingNodesAreAlreadyCovered(*directed_graph, *covered_sets,
-                                          degeneracy_ordering, i)) {
-        return result;
+    if (allow_disconnected_clusters || num_nodes <= 1) {
+      double combined_density =
+          CombinedDensity(num_nodes, num_edges, partial_cluster.size());
+      if (combined_density >= min_density) {
+        if (partial_cluster.size() + num_nodes <= 1) return;
+
+        if (bron_kerbosch_pruning &&
+            RemainingNodesAreAlreadyCovered(*directed_graph, *covered_sets,
+                                            degeneracy_ordering, i)) {
+          return;
+        }
+
+        std::vector<NodeId> new_cluster(partial_cluster.begin(),
+                                        partial_cluster.end());
+        for (int j = i + 1; j < graph.NumNodes(); ++j) {
+          new_cluster.push_back(node_id_map[degeneracy_ordering[j]]);
+        }
+
+        result.AddCluster(std::move(new_cluster), combined_density);
+        return;
       }
-
-      std::vector<NodeId> new_cluster(partial_cluster.begin(),
-                                      partial_cluster.end());
-      for (int j = i + 1; j < graph.NumNodes(); ++j) {
-        new_cluster.push_back(node_id_map[degeneracy_ordering[j]]);
-      }
-
-      result.push_back(new_cluster);
-      return result;
     }
   }
   // We should never reach this point, since when we have only one node left,
@@ -469,14 +482,13 @@ std::vector<std::vector<NodeId>> CliqueAggregator(
   ABSL_LOG(FATAL) << "This should never happen.";
 }
 
-}  // namespace
+absl::StatusOr<CliqueAggregatorClusterer::ClusteringWithStatistics>
+ClusterWithStatisticsImpl(
+    const graph_mining::in_memory::ClustererConfig& config,
+    const UnweightedGbbsGraph& graph, bool output_cluster_density) {
+  GbbsGraphWrapper<UnweightedGbbsGraph> graph_wrapper(graph);
 
-absl::StatusOr<InMemoryClusterer::Clustering>
-CliqueAggregatorClusterer::Cluster(
-    const graph_mining::in_memory::ClustererConfig& config) const {
-  GbbsGraphWrapper<UnweightedGbbsGraph> graph(graph_);
-
-  std::vector<NodeId> node_id_map(graph.NumNodes());
+  std::vector<NodeId> node_id_map(graph_wrapper.NumNodes());
   std::iota(node_id_map.begin(), node_id_map.end(), 0);
 
   auto aggregator_function =
@@ -486,20 +498,41 @@ CliqueAggregatorClusterer::Cluster(
           : CliqueAggregator<GbbsGraphWrapper<UnweightedGbbsGraph>,
                              BitSetGraph>;
 
-  std::vector<std::vector<NodeId>> aggregator = aggregator_function(
-      graph, node_id_map, /*partial_cluster=*/{},
+  CliqueAggregatorClusterer::ClusteringWithStatistics result(
+      /*save_cluster_density=*/output_cluster_density);
+  aggregator_function(
+      graph_wrapper, absl::MakeConstSpan(node_id_map), /*partial_cluster=*/{},
       config.clique_aggregator_config().min_density(),
       config.clique_aggregator_config().bron_kerbosch_pruning()
           ? std::make_optional(absl::Span<const BitSet>())
-          : std::nullopt);
+          : std::nullopt,
+      config.clique_aggregator_config().allow_disconnected_clusters(), result);
 
-  for (auto& cluster : aggregator) {
+  for (auto& cluster : result.clusters) {
     absl::c_sort(cluster);
   }
 
   ABSL_LOG(INFO) << "CliqueAggregatorClusterer output number of clusters: "
-                 << aggregator.size();
-  return aggregator;
+                 << result.clusters.size();
+  return result;
+}
+
+}  // namespace
+
+absl::StatusOr<CliqueAggregatorClusterer::ClusteringWithStatistics>
+CliqueAggregatorClusterer::ClusterWithStatistics(
+    const graph_mining::in_memory::ClustererConfig& config) const {
+  return ClusterWithStatisticsImpl(config, graph_,
+                                   /*output_cluster_density=*/true);
+}
+
+absl::StatusOr<InMemoryClusterer::Clustering>
+CliqueAggregatorClusterer::Cluster(
+    const graph_mining::in_memory::ClustererConfig& config) const {
+  ASSIGN_OR_RETURN(CliqueAggregatorClusterer::ClusteringWithStatistics result,
+                   ClusterWithStatisticsImpl(config, graph_,
+                                             /*output_cluster_density=*/false));
+  return result.clusters;
 }
 
 }  // namespace in_memory

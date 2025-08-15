@@ -15,6 +15,10 @@
 #ifndef THIRD_PARTY_GRAPH_MINING_IN_MEMORY_CLUSTERING_CLIQUE_AGGREGATOR_CLIQUE_AGGREGATOR_H_
 #define THIRD_PARTY_GRAPH_MINING_IN_MEMORY_CLUSTERING_CLIQUE_AGGREGATOR_CLIQUE_AGGREGATOR_H_
 
+#include <cstdint>
+#include <optional>
+#include <vector>
+
 #include "absl/status/statusor.h"
 #include "in_memory/clustering/config.pb.h"
 #include "in_memory/clustering/gbbs_graph.h"
@@ -38,11 +42,47 @@ namespace in_memory {
 // For the algorithm description and analysis, see go/dense-subgraphs-paper.
 class CliqueAggregatorClusterer : public InMemoryClusterer {
  public:
+  // Result of the `CliqueAggregatorClusterer`.
+  struct ClusteringWithStatistics {
+    ClusteringWithStatistics() = delete;
+
+    // If `save_clusters_density` is true, the density of each cluster is saved
+    // in the result.
+    explicit ClusteringWithStatistics(bool save_cluster_density) {
+      if (save_cluster_density) {
+        cluster_density.emplace();
+      }
+    }
+
+    void AddCluster(std::vector<NodeId>&& cluster, double density) {
+      clusters.push_back(std::move(cluster));
+      if (cluster_density.has_value()) {
+        cluster_density->push_back(density);
+      }
+    }
+
+    // Number of recursive calls to the `CliqueAggregator` function.
+    int64_t num_recursive_calls = 0;
+    // Number of recursive calls that did not return before computing the
+    // degeneracy ordering.
+    int64_t num_recursive_calls_not_immediately_pruned = 0;
+
+    Clustering clusters;
+    // Either `nullopt` or has the same size as `clusters`. In the latter case,
+    // `cluster_density[i]` is the density of `clusters[i]`.
+    std::optional<std::vector<double>> cluster_density;
+  };
+
   Graph* MutableGraph() override { return &graph_; }
 
   // Each cluster is a *sorted* vector of node IDs.
   absl::StatusOr<Clustering> Cluster(
       const graph_mining::in_memory::ClustererConfig& config) const override;
+
+  // Same as `Cluster`, but returns additional statistics about the execution.
+  // WARNING: This is for testing purposes and is not thoroughly tested.
+  absl::StatusOr<ClusteringWithStatistics> ClusterWithStatistics(
+      const graph_mining::in_memory::ClustererConfig& config) const;
 
  private:
   UnweightedGbbsGraph graph_;

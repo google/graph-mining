@@ -8,6 +8,10 @@ message CliqueAggregatorConfig {
   // The minimum density of the clique containers to be returned.
   double min_density = 1;
 
+  // If set, the algorithm may output clusters that are not connected. The
+  // clusters still have density >= `min_density`.
+  bool allow_disconnected_clusters = 2;
+
   //////////////////////////////////////////////////////////////////////////////
   // The parameters below are only used for performance testing.
   // We use large tag numbers, as they are likely to be removed in the future.

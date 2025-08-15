@@ -15,6 +15,7 @@ cc_library(
         ":clique_aggregator_cc_proto",
         ":degeneracy_orientation",
         ":graphs",
+        "//in_memory:status_macros",
         "//in_memory/clustering:config_cc_proto",
         "//in_memory/clustering:gbbs_graph",
         "//in_memory/clustering:graph",
